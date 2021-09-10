@@ -4,7 +4,7 @@ import { Vaults, Fuse } from "esm";
 import Filter from "bad-words";
 import { TokenData } from "hooks/useTokenData";
 import { createComptroller } from "./createComptroller";
-import { constants } from 'ethers'
+import { utils } from 'ethers'
 
 export const filter = new Filter({ placeHolder: " " });
 filter.addWords(...["R1", "R2", "R3", "R4", "R5", "R6", "R7"]);
@@ -18,19 +18,15 @@ export function filterOnlyObjectProperties(obj: any) {
 export function filterOnlyObjectPropertiesBNtoNumber(obj: any) {
 
   const cleanAssetWithBNs: any[] = Object.entries(obj).filter(([k]: any) => isNaN(k))
+  
+  const assetObject = Object.fromEntries(
+    cleanAssetWithBNs
+    ) as any; 
 
-  const parsedAsset = cleanAssetWithBNs.map((entry, index) => 
-                            entry[0] === "underlyingPrice" 
-                            ? entry = [entry[0], entry[1].div(cleanAssetWithBNs[index][1]).toString()] 
-                            : typeof entry[1] === "object" 
-                            ? entry = [entry[0], entry[1].toString()] 
-                            : entry)
+  const final = Object.keys(assetObject).map((key) => typeof assetObject[key] === "object" ? [key, assetObject[key].toString()] : [key, assetObject[key]])
+  
 
- 
-  console.log(parsedAsset, "res")                            
-  return Object.fromEntries(
-    parsedAsset
-  ) as any;   
+  return Object.fromEntries(final)
 }
 
 
@@ -156,8 +152,8 @@ export const fetchFusePoolData = async (
   let totalBorrowedUSD = 0;
 
   // prefer rari because it has cache
-  const ethPrice: number = parseInt((await (rari ?? fuse).getEthUsdPriceBN()).div(constants.WeiPerEther).toString());
-
+  const ethPrice: number = utils.formatEther((await (rari ?? fuse).getEthUsdPriceBN())) as any;
+    console.log(ethPrice)
   let promises: any[] = [];
 
   for (let i = 0; i < assets.length; i++) {
