@@ -1,15 +1,13 @@
-import Rari from "../rari-sdk/index";
-import Fuse from "../fuse-sdk";
+import { Vaults, Fuse } from "../esm";
 import BigNumber from "bignumber.js";
+import { constants, BigNumber as EthersBigNumber } from "ethers";
 
 export const fetchFuseTVL = async (fuse: Fuse) => {
   const {
     2: totalSuppliedETH,
-  } = await fuse.contracts.FusePoolLens.methods
-    .getPublicPoolsWithData()
-    .call({ gas: 1e18 });
+  } = await fuse.contracts.FusePoolLens.callStatic.getPublicPoolsWithData()
 
-  return fuse.web3.utils.toBN(
+  return EthersBigNumber.from(
     new BigNumber(
       totalSuppliedETH
         .reduce((a: number, b: string) => a + parseInt(b), 0)
@@ -18,7 +16,7 @@ export const fetchFuseTVL = async (fuse: Fuse) => {
   );
 };
 
-export const perPoolTVL = async (rari: Rari, fuse: Fuse) => {
+export const perPoolTVL = async (rari: Vaults, fuse: Fuse) => {
   const [
     stableTVL,
     yieldTVL,
@@ -37,15 +35,15 @@ export const perPoolTVL = async (rari: Rari, fuse: Fuse) => {
     fetchFuseTVL(fuse),
   ]);
 
-  const ethUSDBN = ethPriceBN.div(rari.web3.utils.toBN(1e18));
+  const ethUSDBN = ethPriceBN.div(constants.WeiPerEther)
 
   const ethTVL = ethTVLInETH.mul(ethUSDBN);
   const fuseTVL = fuseTVLInETH.mul(ethUSDBN);
 
-  return { stableTVL, yieldTVL, ethTVL, daiTVL, fuseTVL, stakedTVL };
+  return { stableTVL, yieldTVL, ethTVL, fuseTVL, daiTVL, stakedTVL };
 };
 
-export const fetchTVL = async (rari: Rari, fuse: Fuse) => {
+export const fetchTVL = async (rari: Vaults, fuse: Fuse) => {
   const tvls = await perPoolTVL(rari, fuse);
 
   return tvls.stableTVL

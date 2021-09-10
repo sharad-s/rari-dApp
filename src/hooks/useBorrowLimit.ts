@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { USDPricedFuseAsset } from "utils/fetchFusePoolData";
-
+ 
 export const useBorrowLimit = (
   assets: USDPricedFuseAsset[],
   options?: { ignoreIsEnabledCheckFor: string }
@@ -37,7 +37,7 @@ export const useBorrowLimits = (
           options?.ignoreIsEnabledCheckFor === asset.cToken ||
           asset.membership
         ) {
-          maxBorrow += asset.supplyBalanceUSD * (asset.collateralFactor / 1e18);
+          maxBorrow += asset.supplyBalanceUSD * asset.collateralFactor / 1e18;
         }
       }
       return maxBorrow;

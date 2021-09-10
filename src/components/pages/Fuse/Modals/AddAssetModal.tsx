@@ -32,7 +32,7 @@ import { FuseIRMDemoChartOptions } from "../../../../utils/chartOptions";
 import { SliderWithLabel } from "../../../shared/SliderWithLabel";
 import { convertIRMtoCurve } from "../FusePoolInfoPage";
 
-import Fuse from "../../../../fuse-sdk";
+import { Fuse } from "esm";
 import Chart from "react-apexcharts";
 import {
   ConfigRow,
@@ -50,14 +50,15 @@ import { handleGenericError } from "../../../../utils/errorHandling";
 import { USDPricedFuseAsset } from "../../../../utils/fetchFusePoolData";
 import LogRocket from "logrocket";
 
+import { Contract } from 'ethers'
+
 const formatPercentage = (value: number) => value.toFixed(0) + "%";
 
 export const createCToken = (fuse: Fuse, cTokenAddress: string) => {
-  const cErc20Delegate = new fuse.web3.eth.Contract(
-    JSON.parse(
-      fuse.compoundContracts["contracts/CErc20Delegate.sol:CErc20Delegate"].abi
-    ),
-    cTokenAddress
+  const cErc20Delegate = new Contract(
+    cTokenAddress,
+    JSON.parse( fuse.compoundContracts["contracts/CErc20Delegate.sol:CErc20Delegate"].abi ),
+    fuse.provider
   );
 
   return cErc20Delegate;
@@ -159,14 +160,14 @@ export const AssetSettings = ({
       }
 
       await IRM._init(
-        fuse.web3,
         interestRateModel,
         // reserve factor
         reserveFactor * 1e16,
         // admin fee
         adminFee * 1e16,
         // hardcoded 10% Fuse fee
-        0.1e18
+        0.1e18,
+        fuse.provider,
       );
 
       return convertIRMtoCurve(IRM, fuse);
@@ -216,7 +217,7 @@ export const AssetSettings = ({
       underlying: tokenData.address,
       comptroller: comptrollerAddress,
       interestRateModel,
-      initialExchangeRateMantissa: fuse.web3.utils.toBN(1e18),
+      initialExchangeRateMantissa: fuse.constants.WeiPerEther,
 
       // Ex: BOGGED USDC
       name: poolName + " " + tokenData.name,

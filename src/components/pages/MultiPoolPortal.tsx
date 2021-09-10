@@ -134,7 +134,7 @@ export const RGTPrice = () => {
       interval={5000}
       fetch={() => {
         return rari.governance.rgt.getExchangeRate().then((data) => {
-          return stringUsdFormatter(rari.web3.utils.fromWei(data));
+          return stringUsdFormatter((data.toString() / 1e18).toString());
         });
       }}
       loadingPlaceholder="$?"
@@ -157,7 +157,7 @@ const GovernanceStats = () => {
     async () => {
       const rawBalance = await rari.governance.rgt.balanceOf(address);
 
-      return stringUsdFormatter(rari.web3.utils.fromWei(rawBalance)).replace(
+      return stringUsdFormatter((rawBalance.toString() / 1e18).toString()).replace(
         "$",
         ""
       );
@@ -167,9 +167,7 @@ const GovernanceStats = () => {
   const { data: rgtSupply } = useQuery("rgtSupply", async () => {
     const rawSupply =
       //@ts-ignore
-      await rari.governance.contracts.RariGovernanceToken.methods
-        .totalSupply()
-        .call();
+      await rari.governance.contracts.RariGovernanceToken.totalSupply()
 
     return smallStringUsdFormatter((parseFloat(rawSupply) / 1e18).toFixed(0))
       .replace("$", "")
@@ -366,8 +364,7 @@ const PoolDetailCard = ({ pool }: { pool: Pool }) => {
 
   const authedOpenModal = useAuthedCallback(openDepositModal);
 
-  const { data: balanceData, isLoading: isPoolBalanceLoading } =
-    usePoolBalance(pool);
+  const { data: balanceData, isLoading: isPoolBalanceLoading } = usePoolBalance(pool);
 
   const poolAPY = usePoolAPY(pool);
 
@@ -387,7 +384,7 @@ const PoolDetailCard = ({ pool }: { pool: Pool }) => {
   }
 
   const myBalance = balanceData!;
-  const formattedBalance = formatBalanceBN(rari, myBalance, pool === Pool.ETH);
+  const formattedBalance = formatBalanceBN(myBalance, pool === Pool.ETH);
 
   // const rgtAPR = useRGTAPR();
 

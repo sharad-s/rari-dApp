@@ -1,22 +1,20 @@
 import { useQuery } from "react-query";
 import { useRari } from "context/RariContext";
-import Rari from "rari-sdk/index";
-import Fuse from "fuse-sdk";
+import { Vaults, Fuse } from "esm";
+
+// ethers
+import { constants } from 'ethers';
 
 export const fetchPool2Balance = async ({
   rari,
   fuse,
   address,
 }: {
-  rari: Rari;
+  rari: Vaults;
   fuse: Fuse;
   address: string;
 }) => {
-  const SLP = parseFloat(
-    rari.web3.utils.fromWei(
-      await rari.governance.rgt.sushiSwapDistributions.stakingBalanceOf(address)
-    )
-  );
+  const SLP = parseFloat( ( await rari.governance.rgt.sushiSwapDistributions.stakingBalanceOf(address) ).div(constants.WeiPerEther).toString() );
 
   const balanceUSDBN = await rari.governance.rgt.sushiSwapDistributions.usdStakingBalanceOf(
     address

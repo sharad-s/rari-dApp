@@ -32,6 +32,8 @@ import { SimpleTooltip } from "../../shared/SimpleTooltip";
 import { handleGenericError } from "../../../utils/errorHandling";
 import LogRocket from "logrocket";
 
+import { utils } from 'ethers'
+
 const formatPercentage = (value: number) => value.toFixed(0) + "%";
 
 const FusePoolCreatePage = memo(() => {
@@ -149,7 +151,7 @@ const PoolConfiguration = () => {
 
       const event = (
         await fuse.contracts.FusePoolDirectory.getPastEvents("PoolRegistered", {
-          fromBlock: (await fuse.web3.eth.getBlockNumber()) - 10,
+          fromBlock: (await fuse.provider.getBlockNumber()) - 10,
           toBlock: "latest",
         })
       ).filter(
@@ -352,7 +354,7 @@ export const WhitelistInfo = ({
 }) => {
   const [_whitelistInput, _setWhitelistInput] = useState("");
   const { t } = useTranslation();
-  const { fuse } = useRari();
+  const { fuse, rari } = useRari();
   const toast = useToast();
 
   return (
@@ -377,7 +379,7 @@ export const WhitelistInfo = ({
           backgroundColor="transparent"
           onClick={() => {
             if (
-              fuse.web3.utils.isAddress(_whitelistInput) &&
+              utils.isAddress(_whitelistInput) &&
               !whitelist.includes(_whitelistInput)
             ) {
               addToWhitelist(_whitelistInput);

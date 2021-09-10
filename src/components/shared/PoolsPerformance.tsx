@@ -59,10 +59,10 @@ const PoolsPerformanceChart = ({ size }: { size: number }) => {
       let yieldBalance = 10000;
       let daiBalance = 10000;
 
-      let stablePoints = [];
-      let yieldPoints = [];
-      let ethPoints = [];
-      let daiPoints = [];
+      let stablePoints: {x: string, y: number}[] = [];
+      let yieldPoints: {x: string, y:number}[] = [];
+      let ethPoints: {x: string, y: number}[] = [];
+      let daiPoints: {x: string, y: number}[] = [];
 
       let i = 1;
 

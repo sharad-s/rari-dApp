@@ -1,16 +1,15 @@
-import Rari from "rari-sdk/index";
-import { BN, stringUsdFormatter } from "./bigUtils";
+import { stringUsdFormatter } from "./bigUtils";
+import { constants } from 'ethers'
 
 // Formats a BN balance USD or ETH denominated string
 export const formatBalanceBN = (
-  rari: Rari,
-  balanceData: BN | null,
+  balanceData: any, // TODO: BigNumber type from ethers
   shouldFormatETH: boolean = false
 ): string | null => {
   if (!balanceData) return null;
 
   let formattedBalance = stringUsdFormatter(
-    rari.web3.utils.fromWei(balanceData!)
+    balanceData.div(constants.WeiPerEther).toString()
   );
 
   if (shouldFormatETH)

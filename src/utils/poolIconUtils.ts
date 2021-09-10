@@ -1,4 +1,4 @@
-// Icons
+// Icon
 import EthIcon from "../static/ethicon.png";
 import StableIcon from "../static/stableicon.png";
 import YieldIcon from "../static/yieldicon.png";

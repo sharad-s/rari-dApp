@@ -1,35 +1,37 @@
 import { useQuery } from "react-query";
-
+import { Fuse } from '../esm'
 import { useRari } from "../context/RariContext";
 import ERC20ABI from "../rari-sdk/abi/ERC20.json";
 import { ETH_TOKEN_DATA } from "./useTokenData";
-import Web3 from "web3";
+
+import { Contract } from "@ethersproject/contracts";
+
 
 export const fetchTokenBalance = async (
   tokenAddress: string,
-  web3: Web3,
+  fuse: Fuse,
   address: string
 ) => {
-  let stringBalance;
+  let BalanceBN;
 
   if (
     tokenAddress === ETH_TOKEN_DATA.address ||
     tokenAddress === "NO_ADDRESS_HERE_USE_WETH_FOR_ADDRESS"
   ) {
-    stringBalance = await web3.eth.getBalance(address);
+    BalanceBN = await fuse.provider.getBalance(address);
   } else {
-    const contract = new web3.eth.Contract(ERC20ABI as any, tokenAddress);
+    const contract = new Contract(tokenAddress, ERC20ABI, fuse.provider);
 
-    stringBalance = await contract.methods.balanceOf(address).call();
+    BalanceBN = await contract.balanceOf(address); // Will return a BN
   }
 
-  return web3.utils.toBN(stringBalance);
+  return BalanceBN;
 };
 
 export function useTokenBalance(tokenAddress: string) {
-  const { rari, address } = useRari();
+  const { fuse, address } = useRari();
 
   return useQuery(tokenAddress + " balanceOf " + address, () =>
-    fetchTokenBalance(tokenAddress, rari.web3, address)
+    fetchTokenBalance(tokenAddress, fuse, address)
   );
 }

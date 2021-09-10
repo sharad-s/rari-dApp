@@ -1,10 +1,11 @@
-import Fuse from "../fuse-sdk";
-import Rari from "../rari-sdk/index";
+import { Vaults, Fuse } from "esm";
 
 // @ts-ignore
 import Filter from "bad-words";
 import { TokenData } from "hooks/useTokenData";
 import { createComptroller } from "./createComptroller";
+import { constants } from 'ethers'
+
 export const filter = new Filter({ placeHolder: " " });
 filter.addWords(...["R1", "R2", "R3", "R4", "R5", "R6", "R7"]);
 
@@ -13,6 +14,25 @@ export function filterOnlyObjectProperties(obj: any) {
     Object.entries(obj).filter(([k]) => isNaN(k as any))
   ) as any;
 }
+
+export function filterOnlyObjectPropertiesBNtoNumber(obj: any) {
+
+  const cleanAssetWithBNs: any[] = Object.entries(obj).filter(([k]: any) => isNaN(k))
+
+  const parsedAsset = cleanAssetWithBNs.map((entry, index) => 
+                            entry[0] === "underlyingPrice" 
+                            ? entry = [entry[0], entry[1].div(cleanAssetWithBNs[index][1]).toString()] 
+                            : typeof entry[1] === "object" 
+                            ? entry = [entry[0], entry[1].toString()] 
+                            : entry)
+
+ 
+  console.log(parsedAsset, "res")                            
+  return Object.fromEntries(
+    parsedAsset
+  ) as any;   
+}
+
 
 export interface FuseAsset {
   cToken: string;
@@ -110,7 +130,7 @@ export const fetchFusePoolData = async (
   poolId: string | undefined,
   address: string,
   fuse: Fuse,
-  rari?: Rari
+  rari?: Vaults
 ): Promise<FusePoolData | undefined> => {
   if (!poolId) return undefined;
 
@@ -118,19 +138,15 @@ export const fetchFusePoolData = async (
     comptroller,
     name: _unfiliteredName,
     isPrivate,
-  } = await fuse.contracts.FusePoolDirectory.methods
-    .pools(poolId)
-    .call({ from: address });
+  } = await fuse.contracts.FusePoolDirectory.callStatic.pools(poolId)
 
   // Remove any profanity from the pool name
   let name = filterPoolName(_unfiliteredName);
 
   let assets: USDPricedFuseAsset[] = (
-    await fuse.contracts.FusePoolLens.methods
-      .getPoolAssetsWithData(comptroller)
-      .call({ from: address, gas: 1e18 })
-  ).map(filterOnlyObjectProperties);
-
+    await fuse.contracts.FusePoolLens.callStatic.getPoolAssetsWithData(comptroller)
+  ).map(filterOnlyObjectPropertiesBNtoNumber);
+  
   let totalLiquidityUSD = 0;
 
   let totalSupplyBalanceUSD = 0;
@@ -139,12 +155,10 @@ export const fetchFusePoolData = async (
   let totalSuppliedUSD = 0;
   let totalBorrowedUSD = 0;
 
-  const ethPrice: number = fuse.web3.utils.fromWei(
-    // prefer rari because it has caching
-    await (rari ?? fuse).getEthUsdPriceBN()
-  ) as any;
+  // prefer rari because it has cache
+  const ethPrice: number = parseInt((await (rari ?? fuse).getEthUsdPriceBN()).div(constants.WeiPerEther).toString());
 
-  let promises = [];
+  let promises: any[] = [];
 
   for (let i = 0; i < assets.length; i++) {
     const comptrollerContract = createComptroller(comptroller, fuse);
@@ -152,9 +166,7 @@ export const fetchFusePoolData = async (
     let asset = assets[i];
 
     promises.push(
-      comptrollerContract.methods
-        .borrowGuardianPaused(asset.cToken)
-        .call()
+      comptrollerContract.callStatic.borrowGuardianPaused(asset.cToken)
         // TODO: THIS WILL BE BUILT INTO THE LENS
         .then((isPaused: boolean) => (asset.isPaused = isPaused))
     );

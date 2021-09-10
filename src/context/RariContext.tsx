@@ -12,17 +12,16 @@ import { useQueryClient } from "react-query";
 import { useTranslation } from "react-i18next";
 import { DASHBOARD_BOX_PROPS } from "../components/shared/DashboardBox";
 
-import Rari from "../rari-sdk/index";
-
 import LogRocket from "logrocket";
 import { useToast } from "@chakra-ui/react";
-import Fuse from "../fuse-sdk/src";
+import { Fuse, Vaults }from "../esm";
 import {
   chooseBestWeb3Provider,
   initFuseWithProviders,
   turboGethURL,
 } from "../utils/web3Providers";
 import { useLocation } from "react-router-dom";
+import { Web3Provider } from "@ethersproject/providers";
 
 async function launchModalLazy(
   t: (text: string, extra?: any) => string,
@@ -74,7 +73,7 @@ async function launchModalLazy(
 }
 
 export interface RariContextData {
-  rari: Rari;
+  rari: Vaults;
   fuse: Fuse;
   web3ModalProvider: any | null;
   isAuthed: boolean;
@@ -94,9 +93,8 @@ export const RariProvider = ({ children }: { children: ReactNode }) => {
   const { t } = useTranslation();
 
   const location = useLocation();
-
-  const [rari, setRari] = useState<Rari>(
-    () => new Rari(chooseBestWeb3Provider())
+  const [rari, setRari] = useState<Vaults>(
+    () => new Vaults(chooseBestWeb3Provider())
   );
   const [fuse, setFuse] = useState<Fuse>(() => initFuseWithProviders());
 
@@ -106,16 +104,17 @@ export const RariProvider = ({ children }: { children: ReactNode }) => {
 
   // Check the user's network:
   useEffect(() => {
-    Promise.all([rari.web3.eth.net.getId(), rari.web3.eth.getChainId()]).then(
+    //@ts-ignore
+    Promise.all([rari.provider.send("net_version"), rari.provider.getNetwork()]).then(
       ([netId, chainId]) => {
-        console.log("Network ID: " + netId, "Chain ID: " + chainId);
+        console.log("Network ID: " + netId, "Chain ID: " + chainId.chainId);
 
         // Don't show "wrong network" toasts if dev
         if (process.env.NODE_ENV === "development") {
           return;
         }
 
-        if (netId !== 1 || chainId !== 1) {
+        if (netId !== 1 || chainId.chainId !== 1) {
           setTimeout(() => {
             toast({
               title: "Wrong network!",
@@ -140,13 +139,14 @@ export const RariProvider = ({ children }: { children: ReactNode }) => {
 
   const setRariAndAddressFromModal = useCallback(
     (modalProvider) => {
-      const rariInstance = new Rari(modalProvider);
-      const fuseInstance = initFuseWithProviders(modalProvider);
+      const provider = new Web3Provider(modalProvider)
+      const rariInstance = new Vaults(provider);
+      const fuseInstance = initFuseWithProviders(provider);
 
       setRari(rariInstance);
       setFuse(fuseInstance);
 
-      rariInstance.web3.eth.getAccounts().then((addresses) => {
+      rariInstance.provider.listAccounts().then((addresses: string[]) => {
         if (addresses.length === 0) {
           console.log("Address array was empty. Reloading!");
           window.location.reload();

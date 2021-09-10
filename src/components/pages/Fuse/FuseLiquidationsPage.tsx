@@ -14,30 +14,38 @@ import {
   RowOrColumn,
   useIsMobile,
 } from "utils/chakraUtils";
+
+// React
+import { useQuery } from "react-query";
+import { memo, useState } from "react";
+
+// Translation
 import { useTranslation } from "react-i18next";
+
+// Rari
 import { useRari } from "context/RariContext";
+
+// Hooks
 import { useIsSmallScreen } from "hooks/useIsSmallScreen";
 import { smallUsdFormatter } from "utils/bigUtils";
+import { filterOnlyObjectProperties, FuseAsset } from "utils/fetchFusePoolData";
 
+// Components
 import DashboardBox from "../../shared/DashboardBox";
 import { Header } from "../../shared/Header";
 import { ModalDivider } from "../../shared/Modal";
-
 import { Link as RouterLink } from "react-router-dom";
 import FuseStatsBar from "./FuseStatsBar";
 import FuseTabBar from "./FuseTabBar";
-
-import { filterOnlyObjectProperties, FuseAsset } from "utils/fetchFusePoolData";
-
-import { SimpleTooltip } from "components/shared/SimpleTooltip";
-
 import Footer from "components/shared/Footer";
-import { memo, useState } from "react";
+import { SimpleTooltip } from "components/shared/SimpleTooltip";
+import { CTokenIcon } from "./FusePoolsPage";
 
 // @ts-ignore
 import Jazzicon, { jsNumberForAddress } from "react-jazzicon";
-import { CTokenIcon } from "./FusePoolsPage";
-import { useQuery } from "react-query";
+
+// Ethers
+import { utils, constants, Contract } from 'ethers';
 
 export type LiquidatablePosition = {
   account: string;
@@ -80,15 +88,14 @@ const FuseLiquidationsPage = memo(() => {
     showAtRiskPositions ? "atRiskPositions" : "liquidatablePositions",
     async () => {
       const [response, ethPriceBN] = await Promise.all([
-        fuse.contracts.FusePoolLens.methods
+        fuse.contracts.FusePoolLens
           .getPublicPoolUsersWithData(
-            fuse.web3.utils.toBN(showAtRiskPositions ? 1.1e18 : 1e18)
-          )
-          .call(),
+            showAtRiskPositions ? utils.parseUnits("1.1", 18) : constants.WeiPerEther
+          ),
         rari.getEthUsdPriceBN(),
       ]);
 
-      const ethPrice: number = fuse.web3.utils.fromWei(ethPriceBN) as any;
+      const ethPrice: number =  parseInt(ethPriceBN.toString()) / 1e18 as any;
 
       const comptrollers = response[0];
       const poolUsers = response[1];
@@ -184,13 +191,10 @@ const FuseLiquidationsPage = memo(() => {
                 continue;
               }
 
-              const cToken = new fuse.web3.eth.Contract(
-                JSON.parse(
-                  fuse.compoundContracts[
-                    "contracts/CEtherDelegate.sol:CEtherDelegate"
-                  ].abi
-                ),
-                asset.cToken
+              const cToken = new Contract(
+                asset.cToken,
+                JSON.parse( fuse.compoundContracts[ "contracts/CEtherDelegate.sol:CEtherDelegate"].abi ),
+                fuse.provider
               );
 
               eventFetches.push(
@@ -211,7 +215,7 @@ const FuseLiquidationsPage = memo(() => {
                       })!;
 
                       promises.push(
-                        fuse.web3.eth
+                        fuse.provider
                           .getBlock(event.blockNumber)
                           .then((blockInfo) => {
                             liquidationEvents.push({

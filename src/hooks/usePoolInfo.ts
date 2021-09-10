@@ -10,9 +10,10 @@ import { usePoolsAPY } from "./usePoolAPY";
 import { usePoolBalances, useTotalPoolsBalance } from "./usePoolBalance";
 import { usePoolInterestEarned } from "./usePoolInterest";
 import { useRari } from "context/RariContext";
-import { BN, shortUsdFormatter } from "utils/bigUtils";
+import { toBN, shortUsdFormatter } from "utils/bigUtils";
 import { PoolInterestEarned } from "utils/fetchPoolInterest";
 import { getPoolLogo } from "utils/poolIconUtils";
+import { BigNumber } from "@ethersproject/contracts/node_modules/@ethersproject/bignumber";
 
 export const usePoolInfo = (poolType: Pool) => {
   const { t } = useTranslation();
@@ -53,9 +54,9 @@ export const usePoolInfos = (): PoolInterface[] => {
 export type AggregatePoolInfo = {
   poolInfo: PoolInterface;
   poolAPY: number | null;
-  poolBalance: BN | null;
+  poolBalance: BigNumber | null;
   formattedPoolBalance: string | null;
-  poolInterestEarned: BN | null;
+  poolInterestEarned: BigNumber | null;
   formattedPoolInterestEarned: string | null;
   poolGrowth: number;
   formattedPoolGrowth: string | null;
@@ -76,11 +77,7 @@ export type AggregatePoolsInfoReturn = {
 
 export const useAggregatePoolInfos = () => {
   const { rari } = useRari();
-  const {
-    web3: {
-      utils: { toBN },
-    },
-  } = rari;
+
   const poolInfos = usePoolInfos();
   const poolAPYs = usePoolsAPY(poolInfos);
   const poolBalances = usePoolBalances(poolInfos);
@@ -95,10 +92,9 @@ export const useAggregatePoolInfos = () => {
       poolInfos.map((poolInfo: PoolInterface, index: number) => {
         // @ts-ignore
         const poolAPY: number | null = poolAPYs[index] ?? null;
-        const poolBalance: BN = poolBalances[index]?.data ?? toBN(0);
+        const poolBalance: BigNumber = poolBalances[index]?.data ?? toBN(0);
 
         const formattedPoolBalance: string | null = formatBalanceBN(
-          rari,
           poolBalance,
           poolInfo.type === Pool.ETH
         );
@@ -121,13 +117,12 @@ export const useAggregatePoolInfos = () => {
         }
 
         const formattedPoolInterestEarned = formatBalanceBN(
-          rari,
           poolInterestEarned,
           poolInfo.type === Pool.ETH
         );
 
         // Growth for a pool = % increase between balance & (balance - interest earned)
-        const poolGrowth: BN =
+        const poolGrowth: BigNumber =
           poolBalance && poolInterestEarned
             ? !poolBalance.isZero()
               ? toBN(1).sub(
@@ -151,7 +146,7 @@ export const useAggregatePoolInfos = () => {
           formattedPoolGrowth,
         };
       }),
-    [rari, poolInfos, poolAPYs, poolBalances, poolsInterestEarned, toBN]
+    [poolInfos, poolAPYs, poolBalances, poolsInterestEarned]
   );
 
   const totals = useMemo(
@@ -159,13 +154,12 @@ export const useAggregatePoolInfos = () => {
       balance: totalPoolsBalance ?? null,
       balanceFormatted: shortUsdFormatter(totalPoolsBalance) ?? null,
       interestEarned: formatBalanceBN(
-        rari,
         poolsInterestEarned?.totalEarnings ?? null
       ),
       apy: "50%",
       growth: "50%",
     }),
-    [totalPoolsBalance, poolsInterestEarned, rari]
+    [totalPoolsBalance, poolsInterestEarned]
   );
 
   return { totals, aggregatePoolsInfo };

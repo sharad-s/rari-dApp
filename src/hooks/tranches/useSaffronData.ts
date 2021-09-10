@@ -5,6 +5,8 @@ import { useSaffronContracts } from "components/pages/Tranches/SaffronContext";
 import { smallUsdFormatter, smallStringUsdFormatter } from "utils/bigUtils";
 import ERC20ABI from "rari-sdk/abi/ERC20.json";
 
+import { constants, Contract } from "ethers";
+
 export enum TranchePool {
   DAI = "DAI",
   USDC = "USDC",
@@ -108,14 +110,13 @@ export const usePrincipal = (
 
       const currentEpoch = await fetchCurrentEpoch();
 
-      const tranchePToken = new rari.web3.eth.Contract(
-        ERC20ABI as any,
-        await saffronPool.methods
-          .principal_token_addresses(
+      const tranchePToken = new Contract(
+        await saffronPool.methods.principal_token_addresses(
             currentEpoch,
             trancheRatingIndex(trancheRating)
-          )
-          .call()
+          ),
+          ERC20ABI,
+          rari.provider
       );
 
       return smallUsdFormatter(
@@ -136,30 +137,25 @@ export const usePrincipalBalance = () => {
     async () => {
       const currentEpoch = await fetchCurrentEpoch();
 
-      const sTranchePToken = new rari.web3.eth.Contract(
-        ERC20ABI as any,
+      const sTranchePToken = new Contract(
         await saffronPool.methods
-          .principal_token_addresses(currentEpoch, 0)
-          .call()
+        .principal_token_addresses(currentEpoch, 0),
+        ERC20ABI as any,
+        rari.provider
       );
 
-      const aTranchePToken = new rari.web3.eth.Contract(
-        ERC20ABI as any,
+      const aTranchePToken = new Contract(
         await saffronPool.methods
           .principal_token_addresses(currentEpoch, 2)
-          .call()
+          .call(),
+        ERC20ABI as any,
+        rari.provider
       );
 
       return smallStringUsdFormatter(
-        rari.web3.utils.fromWei(
-          rari.web3.utils
-            .toBN(await sTranchePToken.methods.balanceOf(address).call())
-            .add(
-              rari.web3.utils.toBN(
-                await aTranchePToken.methods.balanceOf(address).call()
-              )
-            )
-        )
+        (
+          (await sTranchePToken.balanceOf(address)).add(await aTranchePToken.balanceOf(address))
+        ).div(constants.WeiPerEther).toString()
       );
     }
   );
@@ -203,19 +199,18 @@ export const useEstimatedSFI = (): UseEstimatedSFIReturn | undefined => {
 
       const currentEpoch = await fetchCurrentEpoch();
 
-      const dsecSToken = new rari.web3.eth.Contract(
-        ERC20ABI as any,
-        await saffronPool.methods
-          .principal_token_addresses(
-            currentEpoch,
-            trancheRatingIndex(TrancheRating.S)
-          )
-          .call()
+      const dsecSToken = new Contract(
+        await saffronPool.principal_token_addresses(
+          currentEpoch,
+          trancheRatingIndex(TrancheRating.S)
+          ),
+          ERC20ABI,
+          rari.provider
       );
 
       // TODO ADD AA POOL
 
-      const dsecSSupply = await dsecSToken.methods.totalSupply().call();
+      const dsecSSupply = await dsecSToken.totalSupply();
 
       const sPoolSFIEarned =
         DAI_SFI_REWARDS *
@@ -223,16 +218,15 @@ export const useEstimatedSFI = (): UseEstimatedSFIReturn | undefined => {
         // If supply is zero we will get NaN for dividing by zero
         (dsecSSupply === "0"
           ? 0
-          : (await dsecSToken.methods.balanceOf(address).call()) / dsecSSupply);
+          : (await dsecSToken.balanceOf(address)).toString() / dsecSSupply);
 
-      const dsecAToken = new rari.web3.eth.Contract(
-        ERC20ABI as any,
-        await saffronPool.methods
-          .principal_token_addresses(
-            currentEpoch,
-            trancheRatingIndex(TrancheRating.A)
-          )
-          .call()
+      const dsecAToken = new Contract(
+        await saffronPool.principal_token_addresses(
+          currentEpoch,
+          trancheRatingIndex(TrancheRating.A)
+          ),
+          ERC20ABI as any,
+          rari.provider
       );
 
       const dsecASupply = await dsecAToken.methods.totalSupply().call();

@@ -26,7 +26,6 @@ import {
   fetchTokenBalance,
   useTokenBalance,
 } from "../../../../hooks/useTokenBalance";
-import { BN } from "../../../../utils/bigUtils";
 
 import DashboardBox from "../../../shared/DashboardBox";
 import { ModalDivider } from "../../../shared/Modal";
@@ -34,8 +33,11 @@ import { ModalDivider } from "../../../shared/Modal";
 import { Mode } from ".";
 import { SettingsIcon } from "@chakra-ui/icons";
 
+import { BigNumber as BigNumberEthers } from "@ethersproject/contracts/node_modules/@ethersproject/bignumber";
+
 import { LP_TOKEN_CONTRACT } from "../../../../rari-sdk/governance";
 import { handleGenericError } from "../../../../utils/errorHandling";
+import { constants, utils } from "ethers";
 
 interface Props {
   onClose: () => any;
@@ -107,7 +109,7 @@ const AmountSelect = ({ onClose, mode, openOptions }: Props) => {
       return amount.lte(staked.toString());
     }
   })();
-
+  
   let depositOrWithdrawAlert;
 
   if (amount === null || amount.isZero()) {
@@ -258,18 +260,18 @@ const TokenNameAndMaxButton = ({
   updateAmount: (newAmount: string) => any;
   mode: Mode;
 }) => {
-  const { rari, address } = useRari();
+  const { fuse, rari, address } = useRari();
 
   const [isMaxLoading, setIsMaxLoading] = useState(false);
 
   const setToMax = async () => {
     setIsMaxLoading(true);
-    let maxBN: BN;
+    let maxBN: BigNumberEthers;
 
     if (mode === Mode.DEPOSIT) {
       const balance = await fetchTokenBalance(
         LP_TOKEN_CONTRACT,
-        rari.web3,
+        fuse,
         address
       );
 
@@ -283,7 +285,7 @@ const TokenNameAndMaxButton = ({
       maxBN = deposited;
     }
 
-    if (maxBN.isNeg() || maxBN.isZero()) {
+    if (maxBN.lt(constants.Zero) || maxBN.isZero()) {
       updateAmount("");
     } else {
       const str = new BigNumber(maxBN.toString())

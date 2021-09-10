@@ -1,8 +1,8 @@
 // Types
-import { AbiItem } from "web3-utils";
+import { ContractInterface } from "@ethersproject/contracts";
 
 // LendingPool contract ABI
-const abi: AbiItem[] =
+const abi: ContractInterface =
   require("@aave/protocol-v2/artifacts/contracts/protocol/lendingpool/LendingPool.sol/LendingPool.json").abi;
 
 // Contract address

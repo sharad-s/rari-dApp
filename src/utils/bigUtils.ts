@@ -1,4 +1,4 @@
-import Web3 from "web3";
+import { constants, BigNumber } from "ethers";
 
 const formatter = Intl.NumberFormat("en-US", {
   style: "currency",
@@ -40,6 +40,11 @@ export function shortUsdFormatter(num: number) {
   return "$" + shortFormatter.format(num);
 }
 
-const toBN = Web3.utils.toBN;
-
-export type BN = ReturnType<typeof toBN>;
+export const toBN = (input: number | string) => {
+  if (input === 0 || input === "0")
+      return constants.Zero;
+  if (input === 1e18)
+      return constants.WeiPerEther;
+  else
+      return BigNumber.from(input);
+};

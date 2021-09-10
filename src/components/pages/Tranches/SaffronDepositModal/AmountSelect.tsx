@@ -23,8 +23,6 @@ import { useTranslation } from "react-i18next";
 import { ModalDivider } from "../../../shared/Modal";
 import { useRari } from "../../../../context/RariContext";
 
-import { BN } from "../../../../utils/bigUtils";
-
 import BigNumber from "bignumber.js";
 
 import { useQuery, useQueryClient } from "react-query";
@@ -33,14 +31,16 @@ import { HashLoader } from "react-spinners";
 import {
   TrancheRating,
   TranchePool,
-  trancheRatingIndex,
+  trancheRatingIndex
 } from "hooks/tranches/useSaffronData";
 
 import { useSaffronData } from "hooks/tranches/useSaffronData";
 
-import ERC20ABI from "../../../../rari-sdk/abi/ERC20.json";
+import ERC20ABI from "../../../../esm/Vaults/abi/ERC20.json";
 import { Token } from "rari-tokens-generator";
 import { handleGenericError } from "../../../../utils/errorHandling";
+
+import { BigNumber as BigNumberEthers, constants, Contract } from 'ethers'
 
 function noop() {}
 
@@ -72,17 +72,17 @@ export const requiresSFIStaking = (trancheRating: TrancheRating) => {
 };
 
 const useSFIBalance = () => {
-  const { rari, address } = useRari();
+  const { address } = useRari();
 
   const { data } = useQuery("sfiBalance", async () => {
-    const stringBalance = await new rari.web3.eth.Contract(
+    const stringBalance = await new Contract(
       ERC20ABI as any,
       SFIToken.address
     ).methods
       .balanceOf(address)
       .call();
 
-    return rari.web3.utils.toBN(stringBalance);
+    return BigNumberEthers.from(stringBalance);
   });
 
   return { sfiBalance: data };
@@ -105,7 +105,7 @@ const AmountSelect = ({ onClose, tranchePool, trancheRating }: Props) => {
 
   const { data: sfiRatio } = useQuery(tranchePool + " sfiRatio", async () => {
     return parseFloat(
-      rari.web3.utils.fromWei(await saffronPool.methods.SFI_ratio().call())
+      (await saffronPool.methods.SFI_ratio().call()).div(constants.WeiPerEther).toString()
     );
   });
 
@@ -243,26 +243,26 @@ const AmountSelect = ({ onClose, tranchePool, trancheRating }: Props) => {
 
       const poolAddress = saffronPool.options.address;
 
-      const SFIContract = new rari.web3.eth.Contract(
+      const SFIContract = new Contract(
         ERC20ABI as any,
-        SFIToken.address
+        SFIToken.address,
+        rari.provider
       );
 
-      const trancheToken = new rari.web3.eth.Contract(
+      const trancheToken = new Contract(
         ERC20ABI as any,
-        token.address
+        token.address,
+        rari.provider
       );
 
       const hasApprovedEnoughSFI = requiresSFIStaking(trancheRating)
-        ? rari.web3.utils
-            .toBN(
+        ? BigNumberEthers.from(
               await SFIContract.methods.allowance(address, poolAddress).call()
             )
             .gte(amountBN)
         : true;
 
-      const hasApprovedEnoughPoolToken = rari.web3.utils
-        .toBN(await trancheToken.methods.allowance(address, poolAddress).call())
+      const hasApprovedEnoughPoolToken = BigNumberEthers.from(await trancheToken.methods.allowance(address, poolAddress).call())
         .gte(amountBN);
 
       if (!hasApprovedEnoughSFI) {
@@ -413,19 +413,19 @@ const TokenNameAndMaxButton = ({
 
   const token = isSFI ? SFIToken : tokens[selectedToken];
 
-  const { rari, address } = useRari();
+  const { fuse, address } = useRari();
 
   const [isMaxLoading, setIsMaxLoading] = useState(false);
 
   const setToMax = async () => {
     setIsMaxLoading(true);
-    let maxBN: BN;
+    let maxBN: BigNumberEthers;
 
-    const balance = await fetchTokenBalance(token.address, rari.web3, address);
+    const balance = await fetchTokenBalance(token.address, fuse, address);
 
     maxBN = balance;
 
-    if (maxBN.isNeg() || maxBN.isZero()) {
+    if (maxBN.lt(constants.Zero) || maxBN.isZero()) {
       updateAmount("");
     } else {
       const str = new BigNumber(maxBN.toString())

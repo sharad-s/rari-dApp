@@ -1,13 +1,14 @@
-import Rari from "rari-sdk/index";
-import { stringUsdFormatter, BN } from "utils/bigUtils";
+import { Vaults } from "esm";
+import { constants, BigNumber } from "ethers";
+import { stringUsdFormatter } from "utils/bigUtils";
 
-export const fetchPoolInterestEarned = async (rari: Rari, address: string) => {
+export const fetchPoolInterestEarned = async (rari: Vaults, address: string) => {
   const [
     stableInterest,
     yieldInterest,
     daiInterest,
     ethInterestInETH,
-    ethPriceBN,
+    ethPriceBigNumber,
   ] = await Promise.all([
     rari.pools.stable.balances.interestAccruedBy(address),
     rari.pools.yield.balances.interestAccruedBy(address),
@@ -17,14 +18,12 @@ export const fetchPoolInterestEarned = async (rari: Rari, address: string) => {
   ]);
 
   const ethInterest = ethInterestInETH.mul(
-    ethPriceBN.div(rari.web3.utils.toBN(1e18))
+    ethPriceBigNumber.div(constants.WeiPerEther)
   );
 
   return {
     totalFormattedEarnings: stringUsdFormatter(
-      rari.web3.utils.fromWei(
-        stableInterest.add(yieldInterest).add(ethInterest).add(daiInterest)
-      )
+        (stableInterest.add(yieldInterest).add(ethInterest).add(daiInterest)).div(constants.WeiPerEther).toString()
     ),
     totalEarnings: stableInterest
       .add(yieldInterest)
@@ -40,10 +39,10 @@ export const fetchPoolInterestEarned = async (rari: Rari, address: string) => {
 
 export type PoolInterestEarned = {
   totalFormattedEarnings: string;
-  totalEarnings: BN;
-  daiPoolInterestEarned: BN;
-  yieldPoolInterestEarned: BN;
-  stablePoolInterestEarned: BN;
-  ethPoolInterestEarned: BN;
-  ethPoolInterestEarnedInETH: BN;
+  totalEarnings: BigNumber;
+  daiPoolInterestEarned: BigNumber;
+  yieldPoolInterestEarned: BigNumber;
+  stablePoolInterestEarned: BigNumber;
+  ethPoolInterestEarned: BigNumber;
+  ethPoolInterestEarnedInETH: BigNumber;
 };

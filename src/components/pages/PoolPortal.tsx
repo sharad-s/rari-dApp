@@ -62,7 +62,6 @@ import { GlowingButton } from "../shared/GlowingButton";
 
 import { usePoolBalance } from "../../hooks/usePoolBalance";
 import {
-  BN,
   smallStringUsdFormatter,
   stringUsdFormatter,
 } from "../../utils/bigUtils";
@@ -74,6 +73,8 @@ import { tokens } from "../../utils/tokenUtils";
 import { fetchRGTAPR } from "../../utils/fetchPoolAPY";
 import { formatBalanceBN } from "utils/format";
 import Footer from "components/shared/Footer";
+
+import { BigNumber, constants } from 'ethers'
 
 import { useAuthedCallback } from "../../hooks/useAuthedCallback";
 
@@ -168,10 +169,9 @@ const PoolPortalContent = () => {
   // If loading, stop here
   if (isPoolBalanceLoading) return <FullPageSpinner />;
 
-  const myBalance: BN = poolBalance ?? rari.web3.utils.toBN(0);
+  const myBalance: BigNumber = poolBalance ?? constants.Zero;
   const hasNotDeposited: boolean = poolBalance?.isZero() ?? true;
   const formattedBalance = formatBalanceBN(
-    rari,
     myBalance,
     poolType === Pool.ETH
   );
@@ -408,9 +408,7 @@ const UserStatsAndChart = ({
         pool: poolType,
       }).balances.interestAccruedBy(address, Math.floor(startingBlock / 1000));
 
-      const formattedInterest = stringUsdFormatter(
-        rari.web3.utils.fromWei(interestRaw)
-      );
+      const formattedInterest = stringUsdFormatter(interestRaw);
 
       return poolType === Pool.ETH
         ? formattedInterest.replace("$", "") + " ETH"
@@ -425,7 +423,7 @@ const UserStatsAndChart = ({
         return [];
       }
 
-      const latestBlock = await rari.web3.eth.getBlockNumber();
+      const latestBlock = await rari.provider.getBlockNumber();
 
       const blockStart =
         timeRange === "month"
@@ -608,7 +606,7 @@ const APYStats = () => {
     isLoading: areAPYsLoading,
     isError,
   } = useQuery(pool + " monthly and weekly apys", async () => {
-    const [monthRaw, weekRaw, rgtAPR]: [BN, BN, string] = await Promise.all([
+    const [monthRaw, weekRaw, rgtAPR]: [BigNumber, BigNumber, string] = await Promise.all([
       getSDKPool({
         rari,
         pool,
@@ -624,13 +622,9 @@ const APYStats = () => {
       fetchRGTAPR(rari),
     ]);
 
-    const month = parseFloat(
-      rari.web3.utils.fromWei(monthRaw.mul(rari.web3.utils.toBN(100)))
-    ).toFixed(1);
+    const month = (parseInt(monthRaw.mul(BigNumber.from(100)).toString()) / 1e18).toFixed(2)
 
-    const week = parseFloat(
-      rari.web3.utils.fromWei(weekRaw.mul(rari.web3.utils.toBN(100)))
-    ).toFixed(1);
+    const week = (parseInt(weekRaw.mul(BigNumber.from(100)).toString()) / 1e18).toFixed(2)
 
     return { month, week, rgtAPR };
   });
@@ -703,7 +697,7 @@ const StrategyAllocation = () => {
   const { data: allocations, isLoading: isAllocationsLoading } = useQuery(
     poolType + "allocations",
     async () => {
-      const rawAllocations: { [key: string]: BN } = await getSDKPool({
+      const rawAllocations: { [key: string]: BigNumber } = await getSDKPool({
         rari,
         pool: poolType,
       }).allocations.getRawPoolAllocations();
@@ -711,7 +705,7 @@ const StrategyAllocation = () => {
       let allocations: { [key: string]: number } = {};
 
       for (const [token, amount] of Object.entries(rawAllocations)) {
-        const parsedAmount = parseFloat(rari.web3.utils.fromWei(amount));
+        const parsedAmount = parseFloat(amount.div(constants.WeiPerEther).toString());
 
         if (parsedAmount < 5) {
           continue;
@@ -861,7 +855,7 @@ const TokenAllocation = () => {
     poolType + " currencyAllocations",
     async () => {
       const currencyAllocations: {
-        [key: string]: BN;
+        [key: string]: BigNumber;
       } = await getSDKPool({
         rari,
         pool: poolType,
@@ -944,7 +938,7 @@ const RecentTrades = () => {
   const { data: allocationHistory } = useQuery(
     poolType + " allocationHistory",
     async () => {
-      const currentBlock = await rari.web3.eth.getBlockNumber();
+      const currentBlock = await rari.provider.getBlockNumber();
 
       const history: any[] = await getSDKPool({
         rari,
@@ -953,7 +947,7 @@ const RecentTrades = () => {
 
       return history
         .filter((event) => {
-          return event.returnValues.action === "0";
+          return event.args.action === 1;
         })
         .slice(-40)
         .reverse()
@@ -962,20 +956,21 @@ const RecentTrades = () => {
             poolType === Pool.ETH
               ? "ETH"
               : currencyCodesByHashes[
-                  event.returnValues.currencyCode as string
+                  event.args.currencyCode.hash as string
                 ];
 
           const pool = getSDKPool({ rari, pool: poolType }).allocations.POOLS[
-            event.returnValues.pool
+            event.args.pool
           ];
 
           const amount = smallStringUsdFormatter(
             (
-              parseFloat(event.returnValues.amount) /
+              parseFloat(event.args.amount) / 
               10 ** tokens[token].decimals
             ).toString()
           );
 
+          
           return {
             token,
             amount: poolType === Pool.ETH ? amount.replace("$", "") : amount,
@@ -987,6 +982,8 @@ const RecentTrades = () => {
         });
     }
   );
+
+  console.log(allocationHistory)
 
   const { t } = useTranslation();
 
@@ -1038,8 +1035,7 @@ const TransactionHistory = () => {
 
   const { rari, address } = useRari();
 
-  const poolAddress: string = getSDKPool({ rari, pool: poolType }).contracts //@ts-ignore
-    .RariFundToken.options.address;
+  const poolAddress: string = getSDKPool({ rari, pool: poolType }).contracts.RariFundToken.address;
 
   return (
     <Link

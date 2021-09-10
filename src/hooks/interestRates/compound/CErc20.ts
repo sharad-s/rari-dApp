@@ -1,8 +1,8 @@
 // Types
-import { AbiItem } from "web3-utils";
+import { ContractInterface } from "@ethersproject/contracts";
 
 // CErc20 contract ABI
-const abi: AbiItem[] = require("./contracts/CErc20.json");
+const abi: ContractInterface = require("./contracts/CErc20.json");
 
 const CErc20 = { abi };
 

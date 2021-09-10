@@ -2,10 +2,11 @@ import { useMemo } from "react";
 import { useQuery, useQueries } from "react-query";
 import { Pool } from "../utils/poolUtils";
 import { useRari } from "../context/RariContext";
-import Rari from "../rari-sdk/index";
-import { BN } from "../utils/bigUtils";
+import { Vaults }from "../esm";
 import { getSDKPool } from "../utils/poolUtils";
 import { PoolInterface } from "constants/pools";
+import { BigNumber } from "@ethersproject/contracts/node_modules/@ethersproject/bignumber";
+import { constants } from 'ethers';
 
 interface UseQueryResponse {
   data: any;
@@ -19,9 +20,9 @@ export const fetchPoolBalance = async ({
   address,
 }: {
   pool: Pool;
-  rari: Rari;
+  rari: Vaults;
   address: string;
-}): Promise<BN> => {
+}): Promise<BigNumber> => {
   const balance = await getSDKPool({ rari, pool }).balances.balanceOf(address);
   return balance;
 };
@@ -81,11 +82,11 @@ export const useTotalPoolsBalance = (): UseQueryResponse => {
         ]);
 
       const ethBal = ethBalInETH.mul(
-        ethPriceBN.div(rari.web3.utils.toBN(1e18))
+        ethPriceBN.div(constants.WeiPerEther)
       );
 
       return parseFloat(
-        rari.web3.utils.fromWei(stableBal.add(yieldBal).add(daiBal).add(ethBal))
+        (stableBal.add(yieldBal).add(daiBal).add(ethBal)).div(constants.WeiPerEther).toString()
       );
     }
   );

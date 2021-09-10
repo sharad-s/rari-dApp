@@ -4,6 +4,7 @@ import { useQuery, useQueries } from "react-query";
 import ERC20ABI from "../../src/rari-sdk/abi/ERC20.json";
 import { useRari } from "../context/RariContext";
 
+import { Contract } from "@ethersproject/contracts";
 export const ETH_TOKEN_DATA = {
   symbol: "ETH",
   address: "0x0000000000000000000000000000000000000000",
@@ -31,8 +32,8 @@ export const useTokenDataWithContract = (address: string) => {
   const tokenData = useTokenData(address);
 
   const contract = useMemo(
-    () => new rari.web3.eth.Contract(ERC20ABI as any, address),
-    [address, rari.web3.eth.Contract]
+    () => new Contract(address, ERC20ABI, rari.provider),
+    [address, rari.provider]
   );
 
   return { tokenData, contract };

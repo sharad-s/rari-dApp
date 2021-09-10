@@ -1,1 +1,3 @@
 src/rari-sdk/**.*
+src/esm/**.*
+src/esm

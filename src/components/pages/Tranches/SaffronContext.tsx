@@ -1,9 +1,9 @@
 import { createContext, memo, useContext, useState, useEffect } from "react";
 import { useRari } from "../../../context/RariContext";
-import { Contract } from "web3-eth-contract";
 import SaffronPoolABI from "./SaffronPoolABI.json";
 import SaffronStrategyABI from "./SaffronStrategyABI.json";
 import { SaffronStrategyAddress, SaffronPoolAddress } from "constants/saffron";
+import { Contract } from 'ethers'
 
 interface SaffronContextType {
   saffronStrategy: Contract;
@@ -17,14 +17,14 @@ export const SaffronProvider = memo(({ children }) => {
   const { rari } = useRari();
 
   const [saffronStrategy, setSaffronStrategy] = useState(() => {
-    return new rari.web3.eth.Contract(
+    return new Contract(
       SaffronStrategyABI as any,
       SaffronStrategyAddress
     );
   });
 
   const [saffronPool, setSaffronPool] = useState(() => {
-    return new rari.web3.eth.Contract(
+    return new Contract(
       SaffronPoolABI as any,
       SaffronPoolAddress
     );
@@ -32,14 +32,14 @@ export const SaffronProvider = memo(({ children }) => {
 
   useEffect(() => {
     setSaffronStrategy(
-      new rari.web3.eth.Contract(
+      new Contract(
         SaffronStrategyABI as any,
         SaffronStrategyAddress
       )
     );
 
     setSaffronPool(
-      new rari.web3.eth.Contract(SaffronPoolABI as any, SaffronPoolAddress)
+      new Contract(SaffronPoolABI as any, SaffronPoolAddress)
     );
   }, [rari]);
 

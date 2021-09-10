@@ -1,11 +1,13 @@
-import Fuse from "../fuse-sdk";
+import { Fuse } from "../esm";
+import { Contract } from "@ethersproject/contracts";
 
 export const createComptroller = (comptrollerAddress: string, fuse: Fuse) => {
-  const comptroller = new fuse.web3.eth.Contract(
+  const comptroller = new Contract(
+    comptrollerAddress,
     JSON.parse(
       fuse.compoundContracts["contracts/Comptroller.sol:Comptroller"].abi
     ),
-    comptrollerAddress
+    fuse.provider
   );
 
   return comptroller;

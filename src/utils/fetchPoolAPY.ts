@@ -1,8 +1,8 @@
-import Rari from "../rari-sdk/index";
-
+import { Vaults } from "esm";
+import { BigNumber } from "@ethersproject/contracts/node_modules/@ethersproject/bignumber";
 import { getSDKPool, Pool } from "./poolUtils";
 
-export const fetchRGTAPR = async (rari: Rari) => {
+export const fetchRGTAPR = async (rari: Vaults) => {
   // TODO: Won't work with all the staked and Fuse TVL included
   //   const blockNumber = await rari.web3.eth.getBlockNumber();
 
@@ -21,7 +21,7 @@ export const fetchRGTAPR = async (rari: Rari) => {
 };
 
 export const fetchPoolAPY = async (
-  rari: Rari,
+  rari: Vaults,
   pool: Pool | undefined
 ): Promise<string | null > => {
   if (!pool) return null
@@ -31,20 +31,16 @@ export const fetchPoolAPY = async (
     pool,
   }).apy.getCurrentRawApy();
 
-  const poolAPY = parseFloat(
-    rari.web3.utils.fromWei(poolRawAPY.mul(rari.web3.utils.toBN(100)))
-  ).toFixed(2);
+  const poolAPY = (poolRawAPY.mul(BigNumber.from(100)).toString() / 1e18).toFixed(2);
 
   return poolAPY;
 };
 
 // TODO: Don't hardcode this.
-export const fetchDAIPoolAPY = async (rari: Rari) => {
+export const fetchDAIPoolAPY = async (rari: Vaults) => {
   const poolRawAPY = await rari.pools.dai.apy.getCurrentRawApy();
 
-  const poolAPY = parseFloat(
-    rari.web3.utils.fromWei(poolRawAPY.mul(rari.web3.utils.toBN(100)))
-  ).toFixed(2);
+  const poolAPY = (poolRawAPY.mul(BigNumber.from(100)).toString() / 1e18).toFixed(2)
 
   return poolAPY;
 };

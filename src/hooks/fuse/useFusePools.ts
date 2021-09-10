@@ -1,11 +1,11 @@
 import { useMemo } from "react";
 import { useQuery } from "react-query";
 import { useRari } from "context/RariContext";
-import Rari from "rari-sdk/index";
-import Fuse from "fuse-sdk";
+import { Vaults, Fuse } from "esm";
 import FuseJs from "fuse.js";
 
 import { filterOnlyObjectProperties } from "utils/fetchFusePoolData";
+import { constants } from "ethers";
 
 export interface FusePool {
   name: string;
@@ -45,7 +45,7 @@ export const fetchPools = async ({
   address,
   filter,
 }: {
-  rari: Rari;
+  rari: Vaults;
   fuse: Fuse;
   address: string;
   filter: string | null;
@@ -65,18 +65,12 @@ export const fetchPools = async ({
     ethPrice,
   ] = await Promise.all([
     isMyPools
-      ? fuse.contracts.FusePoolLens.methods
-          .getPoolsBySupplierWithData(address)
-          .call({ gas: 1e18 })
+      ? fuse.contracts.FusePoolLens.callStatic.getPoolsBySupplierWithData(address)
       : isCreatedPools
-      ? fuse.contracts.FusePoolLens.methods
-          .getPoolsByAccountWithData(address)
-          .call({ gas: 1e18 })
-      : fuse.contracts.FusePoolLens.methods
-          .getPublicPoolsWithData()
-          .call({ gas: 1e18 }),
+      ? fuse.contracts.FusePoolLens.callStatic.getPoolsByAccountWithData(address)
+      : fuse.contracts.FusePoolLens.callStatic.getPublicPoolsWithData(),
 
-    rari.web3.utils.fromWei(await rari.getEthUsdPriceBN()),
+          parseInt((await rari.getEthUsdPriceBN()).div(constants.WeiPerEther).toString()),
   ]);
 
   const merged: MergedPool[] = [];
@@ -86,9 +80,9 @@ export const fetchPools = async ({
       underlyingTokens: underlyingTokens[id],
       underlyingSymbols: underlyingSymbols[id],
       pool: filterOnlyObjectProperties(fusePools[id]),
-      id: ids[id],
-      suppliedUSD: (totalSuppliedETH[id] / 1e18) * parseFloat(ethPrice),
-      borrowedUSD: (totalBorrowedETH[id] / 1e18) * parseFloat(ethPrice),
+      id: ids[id].toString(),
+      suppliedUSD: (totalSuppliedETH[id] / 1e18) * ethPrice,
+      borrowedUSD: (totalBorrowedETH[id] / 1e18) * ethPrice,
     });
   }
 

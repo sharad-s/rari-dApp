@@ -27,6 +27,8 @@ import { ModalDivider, ModalTitleWithCloseButton, MODAL_PROPS } from "./Modal";
 
 import { SimpleTooltip } from "./SimpleTooltip";
 
+import { constants, BigNumber as EthersBigNumber } from 'ethers'
+
 export const ClaimRGTModal = ({
   isOpen,
   onClose,
@@ -38,37 +40,25 @@ export const ClaimRGTModal = ({
 }) => {
   const { t } = useTranslation();
 
-  const { address, rari } = useRari();
+  const { address, rari, fuse } = useRari();
 
   const [amount, setAmount] = useState(0);
 
   const { data: unclaimed } = useQuery(address + " unclaimed RGT", async () => {
-    return parseFloat(
-      rari.web3.utils.fromWei(
-        await rari.governance.rgt.distributions.getUnclaimed(address)
-      )
-    );
+    return parseFloat( ((await rari.governance.rgt.distributions.getUnclaimed(address)).div(constants.WeiPerEther)).toString())
   });
 
   const { data: privateUnclaimed } = useQuery(
     address + " privateUnclaimed RGT",
     async () => {
-      return parseFloat(
-        rari.web3.utils.fromWei(
-          await rari.governance.rgt.vesting.getUnclaimed(address)
-        )
-      );
-    }
+      return parseFloat( (await rari.governance.rgt.vesting.getUnclaimed(address)).div(constants.WeiPerEther).toString())
+    } 
   );
 
   const { data: pool2Unclaimed } = useQuery(
     address + " pool2Unclaimed RGT",
     async () => {
-      return parseFloat(
-        rari.web3.utils.fromWei(
-          await rari.governance.rgt.sushiSwapDistributions.getUnclaimed(address)
-        )
-      );
+      return parseFloat( (await rari.governance.rgt.sushiSwapDistributions.getUnclaimed(address)).div(constants.WeiPerEther).toString())
     }
   );
 
@@ -100,7 +90,7 @@ export const ClaimRGTModal = ({
 
     // Could do something with the receipt but notify.js is watching the account and will send a notification for us.
     claimMethod(
-      rari.web3.utils.toBN(
+      EthersBigNumber.from(
         //@ts-ignore
         new BigNumber(amount).multipliedBy(1e18).decimalPlaces(0)
       ),
@@ -109,11 +99,9 @@ export const ClaimRGTModal = ({
   };
 
   const { data: privateClaimFee } = useQuery("privateClaimFee", async () => {
-    const raw = rari.governance.rgt.vesting.getClaimFee(
-      Math.floor(Date.now() / 1000)
-    );
+    const raw = rari.governance.rgt.vesting.getClaimFee( Math.floor(Date.now() / 1000) );
 
-    return (parseFloat(rari.web3.utils.fromWei(raw)) * 100).toFixed(2);
+    return (parseFloat(raw.div(constants.WeiPerEther).toString()) * 100).toFixed(2);
   });
 
   // const { data: claimFee } = useQuery("claimFee", async () => {

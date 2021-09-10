@@ -27,7 +27,7 @@ import { HashLoader } from "react-spinners";
 import { useTranslation } from "react-i18next";
 import { useRari } from "../../../../../context/RariContext";
 import { fetchTokenBalance } from "../../../../../hooks/useTokenBalance";
-import { BN, smallUsdFormatter } from "../../../../../utils/bigUtils";
+import { smallUsdFormatter } from "../../../../../utils/bigUtils";
 
 import DashboardBox from "../../../../shared/DashboardBox";
 import { ModalDivider } from "../../../../shared/Modal";
@@ -40,7 +40,7 @@ import {
 } from "../../../../../hooks/useTokenData";
 import { useBorrowLimit } from "../../../../../hooks/useBorrowLimit";
 
-import Fuse from "../../../../../fuse-sdk";
+import { Fuse } from '../../../../../esm'
 import { USDPricedFuseAsset } from "../../../../../utils/fetchFusePoolData";
 import { createComptroller } from "../../../../../utils/createComptroller";
 import { handleGenericError } from "../../../../../utils/errorHandling";
@@ -51,6 +51,7 @@ import {
   convertMantissaToAPR,
   convertMantissaToAPY,
 } from "../../../../../utils/apyUtils";
+import { constants, BigNumber as EthersBigNumber, utils, Contract} from "ethers";
 
 enum UserAction {
   NO_ACTION,
@@ -119,16 +120,16 @@ export async function testForCTokenErrorAndSend(
 
 const fetchGasForCall = async (
   call: any,
-  amountBN: BN,
+  amountBN,
   fuse: Fuse,
   address: string
 ) => {
-  const estimatedGas = fuse.web3.utils.toBN(
+  const estimatedGas = EthersBigNumber.from(
     (
       (await call.estimateGas({
         from: address,
         // Cut amountBN in half in case it screws up the gas estimation by causing a fail in the event that it accounts for gasPrice > 0 which means there will not be enough ETH (after paying gas)
-        value: amountBN.div(fuse.web3.utils.toBN(2)),
+        value: amountBN.div(EthersBigNumber.from(2)),
       })) *
       // 50% more gas for limit:
       1.5
@@ -140,10 +141,7 @@ const fetchGasForCall = async (
     res.json()
   );
 
-  const gasPrice = fuse.web3.utils.toBN(
-    // @ts-ignore For some reason it's returning a string not a BN
-    fuse.web3.utils.toWei(standard.toString(), "gwei")
-  );
+  const gasPrice = utils.parseUnits(standard.toString(), "gwei")
 
   const gasWEI = estimatedGas.mul(gasPrice);
 
@@ -160,7 +158,7 @@ async function fetchMaxAmount(
   if (mode === Mode.SUPPLY) {
     const balance = await fetchTokenBalance(
       asset.underlyingToken,
-      fuse.web3,
+      fuse,
       address
     );
 
@@ -170,10 +168,10 @@ async function fetchMaxAmount(
   if (mode === Mode.REPAY) {
     const balance = await fetchTokenBalance(
       asset.underlyingToken,
-      fuse.web3,
+      fuse,
       address
     );
-    const debt = fuse.web3.utils.toBN(asset.borrowBalance);
+    const debt = EthersBigNumber.from(asset.borrowBalance);
 
     if (balance.gt(debt)) {
       return debt;
@@ -190,7 +188,7 @@ async function fetchMaxAmount(
       .call();
 
     if (err !== 0) {
-      return fuse.web3.utils.toBN(
+      return EthersBigNumber.from(
         new BigNumber(maxBorrow).multipliedBy(0.75).toFixed(0)
       );
     } else {
@@ -206,7 +204,7 @@ async function fetchMaxAmount(
       .call();
 
     if (err !== 0) {
-      return fuse.web3.utils.toBN(maxRedeem);
+      return EthersBigNumber.from(maxRedeem);
     } else {
       throw new Error("Could not fetch your max withdraw amount! Code: " + err);
     }
@@ -299,7 +297,7 @@ const AmountSelect = ({
     }
   );
 
-  let depositOrWithdrawAlert = null;
+  let depositOrWithdrawAlert: string | null = null;
 
   if (amount === null || amount.isZero()) {
     if (mode === Mode.SUPPLY) {
@@ -360,9 +358,9 @@ const AmountSelect = ({
 
       const max = new BigNumber(2).pow(256).minus(1).toFixed(0);
 
-      const amountBN = fuse.web3.utils.toBN(amount!.toFixed(0));
+      const amountBN = EthersBigNumber.from(amount!.toFixed(0));
 
-      const cToken = new fuse.web3.eth.Contract(
+      const cToken = new Contract(
         isETH
           ? JSON.parse(
               fuse.compoundContracts[
@@ -379,27 +377,20 @@ const AmountSelect = ({
 
       if (mode === Mode.SUPPLY || mode === Mode.REPAY) {
         if (!isETH) {
-          const token = new fuse.web3.eth.Contract(
+          const token = new Contract(
+            asset.underlyingToken,
             JSON.parse(
               fuse.compoundContracts[
                 "contracts/EIP20Interface.sol:EIP20Interface"
               ].abi
             ),
-            asset.underlyingToken
+            fuse.provider
           );
 
-          const hasApprovedEnough = fuse.web3.utils
-            .toBN(
-              await token.methods
-                .allowance(address, cToken.options.address)
-                .call()
-            )
-            .gte(amountBN);
+          const hasApprovedEnough = await token.allowance(address, cToken.options.address).gte(amountBN);
 
           if (!hasApprovedEnough) {
-            await token.methods
-              .approve(cToken.options.address, max)
-              .send({ from: address });
+            await token.approve(cToken.options.address, max)
           }
 
           LogRocket.track("Fuse-Approve");
@@ -422,7 +413,7 @@ const AmountSelect = ({
 
             if (
               // If they are supplying their whole balance:
-              amountBN.toString() === (await fuse.web3.eth.getBalance(address))
+              amountBN.toString() === (await fuse.provider.getBalance(address)).toString()
             ) {
               // Subtract gas for max ETH
 
@@ -461,7 +452,7 @@ const AmountSelect = ({
 
             if (
               // If they are repaying their whole balance:
-              amountBN.toString() === (await fuse.web3.eth.getBalance(address))
+              amountBN.toString() === (await fuse.provider.getBalance(address)).toString()
             ) {
               // Subtract gas for max ETH
 
@@ -810,15 +801,9 @@ const StatsColumn = ({
     useQuery(
       mode + " " + index + " " + JSON.stringify(assets) + " " + amount,
       async () => {
-        const ethPrice: number = fuse.web3.utils.fromWei(
-          await rari.getEthUsdPriceBN()
-        ) as any;
-
+        const ethPrice = (await rari.getEthUsdPriceBN()).div(constants.WeiPerEther).toString()
         const assetToBeUpdated = assets[index];
-
-        const interestRateModel = await fuse.getInterestRateModel(
-          assetToBeUpdated.cToken
-        );
+        const interestRateModel = await fuse.getInterestRateModel( assetToBeUpdated.cToken );
 
         let updatedAsset: USDPricedFuseAsset;
         if (mode === Mode.SUPPLY) {
@@ -832,20 +817,14 @@ const StatsColumn = ({
             ...assetToBeUpdated,
 
             supplyBalance,
-            supplyBalanceUSD:
-              ((supplyBalance * assetToBeUpdated.underlyingPrice) / 1e36) *
-              ethPrice,
-
+            supplyBalanceUSD: ((supplyBalance * assetToBeUpdated.underlyingPrice) / 1e36) * ethPrice,
             totalSupply,
             supplyRatePerBlock: interestRateModel.getSupplyRate(
-              fuse.web3.utils.toBN(
                 totalSupply > 0
-                  ? new BigNumber(assetToBeUpdated.totalBorrow)
-                      .dividedBy(totalSupply.toString())
-                      .multipliedBy(1e18)
-                      .toFixed(0)
+                  ? EthersBigNumber.from(assetToBeUpdated.totalBorrow)
+                      .div(EthersBigNumber.from(totalSupply))
+                      .mul(constants.WeiPerEther)
                   : 0
-              )
             ),
           };
         } else if (mode === Mode.WITHDRAW) {
@@ -865,7 +844,7 @@ const StatsColumn = ({
 
             totalSupply,
             supplyRatePerBlock: interestRateModel.getSupplyRate(
-              fuse.web3.utils.toBN(
+              EthersBigNumber.from(
                 totalSupply > 0
                   ? new BigNumber(assetToBeUpdated.totalBorrow)
                       .dividedBy(totalSupply.toString())
@@ -892,7 +871,7 @@ const StatsColumn = ({
 
             totalBorrow,
             borrowRatePerBlock: interestRateModel.getBorrowRate(
-              fuse.web3.utils.toBN(
+              EthersBigNumber.from(
                 assetToBeUpdated.totalSupply > 0
                   ? new BigNumber(totalBorrow.toString())
                       .dividedBy(assetToBeUpdated.totalSupply)
@@ -919,7 +898,7 @@ const StatsColumn = ({
 
             totalBorrow,
             borrowRatePerBlock: interestRateModel.getBorrowRate(
-              fuse.web3.utils.toBN(
+              EthersBigNumber.from(
                 assetToBeUpdated.totalSupply > 0
                   ? new BigNumber(totalBorrow.toString())
                       .dividedBy(assetToBeUpdated.totalSupply)

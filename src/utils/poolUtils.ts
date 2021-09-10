@@ -1,9 +1,9 @@
-import Rari from "../rari-sdk/index";
+import { Vaults } from "esm";
 
 import EthereumPool from "../rari-sdk/pools/ethereum";
-import StablePool from "../rari-sdk/pools/stable";
-import YieldPool from "../rari-sdk/pools/yield";
-import DaiPool from "../rari-sdk/pools/dai";
+import StablePool from "../esm/Vaults/pools/stable";
+import YieldPool from "../esm/Vaults/pools/yield";
+import DaiPool from "../esm/Vaults/pools/dai";
 
 export enum Pool {
   USDC = "usdc",
@@ -16,7 +16,7 @@ export const getSDKPool = ({
   rari,
   pool,
 }: {
-  rari: Rari;
+  rari: Vaults;
   pool: Pool | undefined;
 }) => {
   let sdkPool: StablePool | EthereumPool | YieldPool | DaiPool;

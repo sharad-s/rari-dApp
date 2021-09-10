@@ -41,9 +41,11 @@ import { CTokenIcon } from "./FusePoolsPage";
 import { shortAddress } from "../../../utils/shortAddress";
 import { USDPricedFuseAsset } from "../../../utils/fetchFusePoolData";
 import { createComptroller } from "../../../utils/createComptroller";
-import Fuse from "../../../fuse-sdk";
+
+import {Fuse} from "../../../esm";
 import CaptionedStat from "../../shared/CaptionedStat";
 import Footer from "components/shared/Footer";
+import { utils } from "ethers";
 
 export const useExtraPoolInfo = (comptrollerAddress: string) => {
   const { fuse, address } = useRari();
@@ -59,19 +61,17 @@ export const useExtraPoolInfo = (comptrollerAddress: string) => {
       enforceWhitelist,
       whitelist,
     ] = await Promise.all([
-      fuse.contracts.FusePoolLens.methods
-        .getPoolOwnership(comptrollerAddress)
-        .call({ gas: 1e18 }),
+      fuse.contracts.FusePoolLens.getPoolOwnership(comptroller),
 
-      fuse.getPriceOracle(await comptroller.methods.oracle().call()),
+      fuse.getPriceOracle(await comptroller.callStatic.oracle()),
 
-      comptroller.methods.closeFactorMantissa().call(),
+      comptroller.closeFactorMantissa(),
 
-      comptroller.methods.liquidationIncentiveMantissa().call(),
+      comptroller.liquidationIncentiveMantissa(),
 
       (() => {
         try {
-          comptroller.methods.enforceWhitelist().call();
+          comptroller.callStatic.enforceWhitelist();
         } catch (_) {
           return false;
         }
@@ -79,7 +79,7 @@ export const useExtraPoolInfo = (comptrollerAddress: string) => {
 
       (() => {
         try {
-          comptroller.methods.getWhitelist().call();
+          comptroller.callStatic.getWhitelist();
         } catch (_) {
           return [];
         }
@@ -133,7 +133,7 @@ const FusePoolInfoPage = memo(() => {
           crossAxisAlignment="flex-start"
           isRow={!isMobile}
         >
-          <DashboardBox
+          {/* <DashboardBox
             width={isMobile ? "100%" : "50%"}
             mt={4}
             height={isMobile ? "auto" : "450px"}
@@ -152,7 +152,7 @@ const FusePoolInfoPage = memo(() => {
                 <Spinner my={8} />
               </Center>
             )}
-          </DashboardBox>
+          </DashboardBox> */}
 
           <DashboardBox
             ml={isMobile ? 0 : 4}
@@ -181,186 +181,186 @@ const FusePoolInfoPage = memo(() => {
 
 export default FusePoolInfoPage;
 
-const OracleAndInterestRates = ({
-  assets,
-  name,
-  totalSuppliedUSD,
-  totalBorrowedUSD,
-  totalLiquidityUSD,
-  comptrollerAddress,
-}: {
-  assets: USDPricedFuseAsset[];
-  name: string;
-  totalSuppliedUSD: number;
-  totalBorrowedUSD: number;
-  totalLiquidityUSD: number;
-  comptrollerAddress: string;
-}) => {
-  let { poolId } = useParams();
+// const OracleAndInterestRates = ({
+//   assets,
+//   name,
+//   totalSuppliedUSD,
+//   totalBorrowedUSD,
+//   totalLiquidityUSD,
+//   comptrollerAddress,
+// }: {
+//   assets: USDPricedFuseAsset[];
+//   name: string;
+//   totalSuppliedUSD: number;
+//   totalBorrowedUSD: number;
+//   totalLiquidityUSD: number;
+//   comptrollerAddress: string;
+// }) => {
+//   let { poolId } = useParams();
 
-  const { t } = useTranslation();
+//   const { t } = useTranslation();
 
-  const data = useExtraPoolInfo(comptrollerAddress);
+//   const data = useExtraPoolInfo(comptrollerAddress);
 
-  const { hasCopied, onCopy } = useClipboard(data?.admin ?? "");
+//   const { hasCopied, onCopy } = useClipboard(data?.admin ?? "");
 
-  return (
-    <Column
-      mainAxisAlignment="flex-start"
-      crossAxisAlignment="flex-start"
-      height="100%"
-      width="100%"
-    >
-      <Row
-        mainAxisAlignment="space-between"
-        crossAxisAlignment="center"
-        width="100%"
-        px={4}
-        height="60px"
-        flexShrink={0}
-      >
-        <Heading size="sm">
-          {t("Pool {{num}} Info", { num: poolId, name })}
-        </Heading>
+//   return (
+//     <Column
+//       mainAxisAlignment="flex-start"
+//       crossAxisAlignment="flex-start"
+//       height="100%"
+//       width="100%"
+//     >
+//       <Row
+//         mainAxisAlignment="space-between"
+//         crossAxisAlignment="center"
+//         width="100%"
+//         px={4}
+//         height="60px"
+//         flexShrink={0}
+//       >
+//         <Heading size="sm">
+//           {t("Pool {{num}} Info", { num: poolId, name })}
+//         </Heading>
 
-        <Link
-          className="no-underline"
-          isExternal
-          ml="auto"
-          href={`https://rari.grafana.net/d/HChNahwGk/fuse-pool-details?orgId=1&refresh=10s&var-poolID=${poolId}`}
-        >
-          <DashboardBox height="35px">
-            <Center expand px={2} fontWeight="bold">
-              {t("Metrics")}
-            </Center>
-          </DashboardBox>
-        </Link>
+//         <Link
+//           className="no-underline"
+//           isExternal
+//           ml="auto"
+//           href={`https://rari.grafana.net/d/HChNahwGk/fuse-pool-details?orgId=1&refresh=10s&var-poolID=${poolId}`}
+//         >
+//           <DashboardBox height="35px">
+//             <Center expand px={2} fontWeight="bold">
+//               {t("Metrics")}
+//             </Center>
+//           </DashboardBox>
+//         </Link>
 
-        {data?.isPowerfulAdmin ? (
-          <Link
-            /* @ts-ignore */
-            as={RouterLink}
-            className="no-underline"
-            to="../edit"
-            ml={2}
-          >
-            <DashboardBox height="35px">
-              <Center expand px={2} fontWeight="bold">
-                {t("Edit")}
-              </Center>
-            </DashboardBox>
-          </Link>
-        ) : null}
-      </Row>
+//         {data?.isPowerfulAdmin ? (
+//           <Link
+//             /* @ts-ignore */
+//             as={RouterLink}
+//             className="no-underline"
+//             to="../edit"
+//             ml={2}
+//           >
+//             <DashboardBox height="35px">
+//               <Center expand px={2} fontWeight="bold">
+//                 {t("Edit")}
+//               </Center>
+//             </DashboardBox>
+//           </Link>
+//         ) : null}
+//       </Row>
 
-      <ModalDivider />
+//       <ModalDivider />
 
-      <Column
-        mainAxisAlignment="center"
-        crossAxisAlignment="center"
-        width="100%"
-        my={4}
-        px={4}
-      >
-        {assets.length > 0 ? (
-          <>
-            <AvatarGroup mt={1} size="xs" max={30}>
-              {assets.map(({ underlyingToken, cToken }) => {
-                return <CTokenIcon key={cToken} address={underlyingToken} />;
-              })}
-            </AvatarGroup>
+//       <Column
+//         mainAxisAlignment="center"
+//         crossAxisAlignment="center"
+//         width="100%"
+//         my={4}
+//         px={4}
+//       >
+//         {assets.length > 0 ? (
+//           <>
+//             <AvatarGroup mt={1} size="xs" max={30}>
+//               {assets.map(({ underlyingToken, cToken }) => {
+//                 return <CTokenIcon key={cToken} address={underlyingToken} />;
+//               })}
+//             </AvatarGroup>
 
-            <Text mt={3} lineHeight={1} textAlign="center">
-              {name} (
-              {assets.map(({ underlyingSymbol }, index, array) => {
-                return (
-                  underlyingSymbol + (index !== array.length - 1 ? " / " : "")
-                );
-              })}
-              )
-            </Text>
-          </>
-        ) : (
-          <Text>{name}</Text>
-        )}
-      </Column>
+//             <Text mt={3} lineHeight={1} textAlign="center">
+//               {name} (
+//               {assets.map(({ underlyingSymbol }, index, array) => {
+//                 return (
+//                   underlyingSymbol + (index !== array.length - 1 ? " / " : "")
+//                 );
+//               })}
+//               )
+//             </Text>
+//           </>
+//         ) : (
+//           <Text>{name}</Text>
+//         )}
+//       </Column>
 
-      <ModalDivider />
+//       <ModalDivider />
 
-      <Column
-        mainAxisAlignment="flex-start"
-        crossAxisAlignment="flex-start"
-        my={5}
-        px={4}
-        width="100%"
-      >
-        <StatRow
-          statATitle={t("Total Supplied")}
-          statA={shortUsdFormatter(totalSuppliedUSD)}
-          statBTitle={t("Total Borrowed")}
-          statB={shortUsdFormatter(totalBorrowedUSD)}
-        />
+//       <Column
+//         mainAxisAlignment="flex-start"
+//         crossAxisAlignment="flex-start"
+//         my={5}
+//         px={4}
+//         width="100%"
+//       >
+//         <StatRow
+//           statATitle={t("Total Supplied")}
+//           statA={shortUsdFormatter(totalSuppliedUSD)}
+//           statBTitle={t("Total Borrowed")}
+//           statB={shortUsdFormatter(totalBorrowedUSD)}
+//         />
 
-        <StatRow
-          statATitle={t("Available Liquidity")}
-          statA={shortUsdFormatter(totalLiquidityUSD)}
-          statBTitle={t("Pool Utilization")}
-          statB={
-            totalSuppliedUSD.toString() === "0"
-              ? "0%"
-              : ((totalBorrowedUSD / totalSuppliedUSD) * 100).toFixed(2) + "%"
-          }
-        />
+//         <StatRow
+//           statATitle={t("Available Liquidity")}
+//           statA={shortUsdFormatter(totalLiquidityUSD)}
+//           statBTitle={t("Pool Utilization")}
+//           statB={
+//             totalSuppliedUSD.toString() === "0"
+//               ? "0%"
+//               : ((totalBorrowedUSD / totalSuppliedUSD) * 100).toFixed(2) + "%"
+//           }
+//         />
 
-        <StatRow
-          statATitle={t("Upgradeable")}
-          statA={data ? (data.upgradeable ? "Yes" : "No") : "?"}
-          statBTitle={
-            hasCopied ? t("Admin (copied!)") : t("Admin (click to copy)")
-          }
-          statB={data?.admin ? shortAddress(data.admin) : "?"}
-          onClick={onCopy}
-        />
+//         <StatRow
+//           statATitle={t("Upgradeable")}
+//           statA={data ? (data.upgradeable ? "Yes" : "No") : "?"}
+//           statBTitle={
+//             hasCopied ? t("Admin (copied!)") : t("Admin (click to copy)")
+//           }
+//           statB={data?.admin ? shortAddress(data.admin) : "?"}
+//           onClick={onCopy}
+//         />
 
-        <StatRow
-          statATitle={t("Platform Fee")}
-          statA={assets.length > 0 ? assets[0].fuseFee / 1e16 + "%" : "10%"}
-          statBTitle={t("Average Admin Fee")}
-          statB={
-            assets
-              .reduce(
-                (a, b, _, { length }) => a + b.adminFee / 1e16 / length,
-                0
-              )
-              .toFixed(1) + "%"
-          }
-        />
+//         <StatRow
+//           statATitle={t("Platform Fee")}
+//           statA={assets.length > 0 ? assets[0].fuseFee / 1e16 + "%" : "10%"}
+//           statBTitle={t("Average Admin Fee")}
+//           statB={
+//             assets
+//               .reduce(
+//                 (a, b, _, { length }) => a + b.adminFee / 1e16 / length,
+//                 0
+//               )
+//               .toFixed(1) + "%"
+//           }
+//         />
 
-        <StatRow
-          statATitle={t("Close Factor")}
-          statA={
-            data?.closeFactor
-              ? (data.closeFactor / 1e16).toFixed(2) + "%"
-              : "?%"
-          }
-          statBTitle={t("Liquidation Incentive")}
-          statB={
-            data?.liquidationIncentive
-              ? data.liquidationIncentive / 1e16 - 100 + "%"
-              : "?%"
-          }
-        />
+//         <StatRow
+//           statATitle={t("Close Factor")}
+//           statA={
+//             data?.closeFactor
+//               ? (data.closeFactor / 1e16).toFixed(2) + "%"
+//               : "?%"
+//           }
+//           statBTitle={t("Liquidation Incentive")}
+//           statB={
+//             data?.liquidationIncentive
+//               ? data.liquidationIncentive / 1e16 - 100 + "%"
+//               : "?%"
+//           }
+//         />
 
-        <StatRow
-          statATitle={t("Oracle")}
-          statA={data ? data.oracle ?? t("Unrecognized Oracle") : "?"}
-          statBTitle={t("Whitelist")}
-          statB={data ? (data.enforceWhitelist ? "Yes" : "No") : "?"}
-        />
-      </Column>
-    </Column>
-  );
-};
+//         <StatRow
+//           statATitle={t("Oracle")}
+//           statA={data ? data.oracle ?? t("Unrecognized Oracle") : "?"}
+//           statBTitle={t("Whitelist")}
+//           statB={data ? (data.enforceWhitelist ? "Yes" : "No") : "?"}
+//         />
+//       </Column>
+//     </Column>
+//   );
+// };
 
 const StatRow = ({
   statATitle,
@@ -418,9 +418,7 @@ const AssetAndOtherInfo = ({ assets }: { assets: USDPricedFuseAsset[] }) => {
         );
 
   const { data } = useQuery(selectedAsset.cToken + " curves", async () => {
-    const interestRateModel = await fuse.getInterestRateModel(
-      selectedAsset.cToken
-    );
+    const interestRateModel = await fuse.getInterestRateModel(selectedAsset.cToken);
 
     if (interestRateModel === null) {
       return { borrowerRates: null, supplierRates: null };
@@ -575,7 +573,7 @@ const AssetAndOtherInfo = ({ assets }: { assets: USDPricedFuseAsset[] }) => {
         pb={2}
       >
         <CaptionedStat
-          stat={(selectedAsset.collateralFactor / 1e16).toFixed(0) + "%"}
+          stat={(selectedAsset.collateralFactor / 1e16 ).toFixed(0) + "%"}
           statSize="lg"
           captionSize="xs"
           caption={t("Collateral Factor")}
@@ -644,14 +642,16 @@ const AssetAndOtherInfo = ({ assets }: { assets: USDPricedFuseAsset[] }) => {
   );
 };
 
+type Rates = {x: number, y: number}[]
+
 export const convertIRMtoCurve = (interestRateModel: any, fuse: Fuse) => {
-  let borrowerRates = [];
-  let supplierRates = [];
+  let borrowerRates: Rates = [];
+  let supplierRates: Rates = [];
   for (var i = 0; i <= 100; i++) {
     const supplyLevel =
       (Math.pow(
         (interestRateModel.getSupplyRate(
-          fuse.web3.utils.toBN((i * 1e16).toString())
+          utils.parseUnits(i.toString(), 16)
         ) /
           1e18) *
           (4 * 60 * 24) +
@@ -664,7 +664,7 @@ export const convertIRMtoCurve = (interestRateModel: any, fuse: Fuse) => {
     const borrowLevel =
       (Math.pow(
         (interestRateModel.getBorrowRate(
-          fuse.web3.utils.toBN((i * 1e16).toString())
+          utils.parseUnits(i.toString(), 16)
         ) /
           1e18) *
           (4 * 60 * 24) +

@@ -2,10 +2,10 @@ import { useQuery } from "react-query";
 import { usePoolType } from "../context/PoolContext";
 import { Pool } from "../utils/poolUtils";
 import { useRari } from "../context/RariContext";
-import Rari from "../rari-sdk/index";
-import { BN } from "../utils/bigUtils";
 import { getSDKPool } from "../utils/poolUtils";
 import { fetchPoolBalance } from "./usePoolBalance";
+import { Vaults } from "esm";
+import { BigNumber } from "@ethersproject/contracts/node_modules/@ethersproject/bignumber";
 
 export const fetchMaxWithdraw = async ({
   rari,
@@ -13,7 +13,7 @@ export const fetchMaxWithdraw = async ({
   poolType,
   symbol,
 }: {
-  rari: Rari;
+  rari: Vaults;
   address: string;
   symbol: string;
   poolType: Pool;
@@ -29,7 +29,7 @@ export const fetchMaxWithdraw = async ({
     pool: poolType,
   }).withdrawals.getMaxWithdrawalAmount(symbol, bigBalance);
 
-  return amount as BN;
+  return amount as BigNumber;
 };
 
 export const useMaxWithdraw = (symbol: string) => {

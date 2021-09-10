@@ -37,6 +37,7 @@ import LogRocket from "logrocket";
 import { handleGenericError } from "../../../utils/errorHandling";
 import { useAuthedCallback } from "../../../hooks/useAuthedCallback";
 
+import { Contract } from 'ethers'
 const activeStyle = { bg: "#FFF", color: "#000" };
 const noop = () => {};
 
@@ -297,7 +298,7 @@ const PoolConfiguration = ({
   };
 
   const renounceOwnership = async () => {
-    const unitroller = new fuse.web3.eth.Contract(
+    const unitroller = new Contract(
       JSON.parse(
         fuse.compoundContracts["contracts/Unitroller.sol:Unitroller"].abi
       ),

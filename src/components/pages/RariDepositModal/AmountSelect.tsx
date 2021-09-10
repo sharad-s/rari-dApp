@@ -28,7 +28,7 @@ import { useTranslation } from "react-i18next";
 import { ModalDivider } from "../../shared/Modal";
 import { useRari } from "../../../context/RariContext";
 import { usePoolType } from "../../../context/PoolContext";
-import { BN, smallStringUsdFormatter } from "../../../utils/bigUtils";
+import { smallStringUsdFormatter } from "../../../utils/bigUtils";
 
 import BigNumber from "bignumber.js";
 
@@ -47,6 +47,7 @@ import { AttentionSeeker } from "react-awesome-reveal";
 
 import { HashLoader } from "react-spinners";
 import { handleGenericError } from "../../../utils/errorHandling";
+import { constants, BigNumber as BigNumberEthers, utils} from "ethers";
 
 interface Props {
   selectedToken: string;
@@ -83,7 +84,7 @@ const AmountSelect = ({
 
   const [userAction, setUserAction] = useState(UserAction.NO_ACTION);
 
-  const [quoteAmount, setQuoteAmount] = useState<null | BN>(null);
+  const [quoteAmount, setQuoteAmount] = useState<null | BigNumberEthers>(null);
 
   const [userEnteredAmount, _setUserEnteredAmount] = useState("");
 
@@ -201,8 +202,8 @@ const AmountSelect = ({
       if (userAction === UserAction.NO_ACTION) {
         setUserAction(UserAction.REQUESTED_QUOTE);
 
-        let quote: BN;
-        let slippage: BN;
+        let quote: BigNumberEthers;
+        let slippage: BigNumberEthers;
 
         if (mode === Mode.DEPOSIT) {
           const [amountToBeAdded, , _slippage] =
@@ -211,7 +212,7 @@ const AmountSelect = ({
               amountBN,
               address,
               true
-            )) as BN[];
+            )) as BigNumberEthers[];
 
           quote = amountToBeAdded;
           slippage = _slippage;
@@ -222,7 +223,7 @@ const AmountSelect = ({
               amountBN,
               address,
               true
-            )) as BN[];
+            )) as BigNumberEthers[];
 
           quote = amountToBeRemoved;
           slippage = _slippage;
@@ -434,7 +435,7 @@ const TokenNameAndMaxButton = ({
 }) => {
   const token = tokens[selectedToken];
 
-  const { rari, address } = useRari();
+  const { rari, fuse, address } = useRari();
 
   const poolType = usePoolType();
 
@@ -442,12 +443,12 @@ const TokenNameAndMaxButton = ({
 
   const setToMax = async () => {
     setIsMaxLoading(true);
-    let maxBN: BN;
+    let maxBN: BigNumberEthers;
 
     if (mode === Mode.DEPOSIT) {
       const balance = await fetchTokenBalance(
         token.address,
-        rari.web3,
+        fuse,
         address
       );
 
@@ -459,12 +460,9 @@ const TokenNameAndMaxButton = ({
           (res) => res.json()
         );
 
-        const gasPrice = rari.web3.utils.toBN(
-          // @ts-ignore For some reason it's returning a string not a BN
-          rari.web3.utils.toWei(standard.toString(), "gwei")
-        );
+        const gasPrice = utils.parseUnits(standard.toString(), "gwei")
 
-        const gasWEI = rari.web3.utils.toBN(500000).mul(gasPrice);
+        const gasWEI = BigNumberEthers.from(500000).mul(gasPrice);
 
         // Subtract the ETH that is needed for gas.
         maxBN = balance.sub(gasWEI);
@@ -482,7 +480,7 @@ const TokenNameAndMaxButton = ({
       maxBN = max;
     }
 
-    if (maxBN.isNeg() || maxBN.isZero()) {
+    if (maxBN.lt(constants.Zero) || maxBN.isZero()) {
       updateAmount("");
     } else {
       const str = new BigNumber(maxBN.toString())
@@ -579,7 +577,7 @@ const ApprovalNotch = ({
   mode,
   amount,
 }: {
-  amount: BN;
+  amount: BigNumberEthers;
   mode: Mode;
   color: string;
 }) => {
@@ -587,11 +585,9 @@ const ApprovalNotch = ({
 
   const poolType = usePoolType();
 
-  const { rari } = useRari();
-
   const formattedAmount = (() => {
     const usdFormatted = smallStringUsdFormatter(
-      rari.web3.utils.fromWei(amount)
+      BigNumberEthers.from(amount).div(constants.WeiPerEther).toString()
     );
 
     return poolType === Pool.ETH
