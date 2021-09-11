@@ -308,7 +308,8 @@ export const AssetSettings = ({
       .toFixed(0);
     try {
       await testForCTokenErrorAndSend(
-        cToken.methods._setReserveFactor(bigReserveFactor),
+        cToken.methods._setReserveFactor,
+        bigReserveFactor,
         address,
         ""
       );
@@ -332,7 +333,8 @@ export const AssetSettings = ({
 
     try {
       await testForCTokenErrorAndSend(
-        cToken.methods._setAdminFee(bigAdminFee),
+        cToken._setAdminFee,
+        bigAdminFee,
         address,
         ""
       );
@@ -350,7 +352,8 @@ export const AssetSettings = ({
 
     try {
       await testForCTokenErrorAndSend(
-        cToken.methods._setInterestRateModel(interestRateModel),
+        cToken._setInterestRateModel,
+        interestRateModel,
         address,
         ""
       );
