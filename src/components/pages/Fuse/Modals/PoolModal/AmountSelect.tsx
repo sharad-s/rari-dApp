@@ -81,10 +81,11 @@ export enum CTokenErrorCodes {
 
 export async function testForCTokenErrorAndSend(
   txObject: any,
+  txArgs: any,
   caller: string,
   failMessage: string
 ) {
-  let response = await txObject.call({ from: caller });
+  let response = await txObject(txArgs);
 
   // For some reason `response` will be `["0"]` if no error but otherwise it will return a string of a number.
   if (response[0] !== "0") {
@@ -361,18 +362,19 @@ const AmountSelect = ({
       const amountBN = EthersBigNumber.from(amount!.toFixed(0));
 
       const cToken = new Contract(
-        isETH
-          ? JSON.parse(
-              fuse.compoundContracts[
-                "contracts/CEtherDelegate.sol:CEtherDelegate"
-              ].abi
-            )
-          : JSON.parse(
-              fuse.compoundContracts[
-                "contracts/CErc20Delegate.sol:CErc20Delegate"
-              ].abi
-            ),
-        asset.cToken
+        asset.cToken,
+          isETH
+            ? JSON.parse(
+                fuse.compoundContracts[
+                  "contracts/CEtherDelegate.sol:CEtherDelegate"
+                ].abi
+              )
+            : JSON.parse(
+                fuse.compoundContracts[
+                  "contracts/CErc20Delegate.sol:CErc20Delegate"
+                ].abi
+              ),
+          fuse.provider.getSigner()
       );
 
       if (mode === Mode.SUPPLY || mode === Mode.REPAY) {
@@ -384,7 +386,7 @@ const AmountSelect = ({
                 "contracts/EIP20Interface.sol:EIP20Interface"
               ].abi
             ),
-            fuse.provider
+            fuse.provider.getSigner()
           );
 
           const hasApprovedEnough = await token.allowance(address, cToken.options.address).gte(amountBN);
@@ -401,22 +403,19 @@ const AmountSelect = ({
           if (enableAsCollateral) {
             const comptroller = createComptroller(comptrollerAddress, fuse);
             // Don't await this, we don't care if it gets executed first!
-            comptroller.methods
-              .enterMarkets([asset.cToken])
-              .send({ from: address });
+            comptroller.enterMarkets([asset.cToken])
 
-            LogRocket.track("Fuse-ToggleCollateral");
+            // LogRocket.track("Fuse-ToggleCollateral");
           }
 
           if (isETH) {
-            const call = cToken.methods.mint();
+            const call = cToken.mint;
 
             if (
               // If they are supplying their whole balance:
               amountBN.toString() === (await fuse.provider.getBalance(address)).toString()
             ) {
-              // Subtract gas for max ETH
-
+              // Subtract "gas for max ETH
               const { gasWEI, gasPrice, estimatedGas } = await fetchGasForCall(
                 call,
                 amountBN,
@@ -424,7 +423,7 @@ const AmountSelect = ({
                 address
               );
 
-              await call.send({
+              await call({
                 from: address,
                 value: amountBN.sub(gasWEI),
 
@@ -432,14 +431,15 @@ const AmountSelect = ({
                 gas: estimatedGas,
               });
             } else {
-              await call.send({
+              await call({
                 from: address,
                 value: amountBN,
               });
             }
           } else {
             await testForCTokenErrorAndSend(
-              cToken.methods.mint(amountBN),
+              cToken.mint,
+              amountBN,
               address,
               "Cannot deposit this amount right now!"
             );
@@ -448,7 +448,7 @@ const AmountSelect = ({
           LogRocket.track("Fuse-Supply");
         } else if (mode === Mode.REPAY) {
           if (isETH) {
-            const call = cToken.methods.repayBorrow();
+            const call = cToken.repayBorrow;
 
             if (
               // If they are repaying their whole balance:
@@ -463,7 +463,7 @@ const AmountSelect = ({
                 address
               );
 
-              await call.send({
+              await call({
                 from: address,
                 value: amountBN.sub(gasWEI),
 
@@ -471,14 +471,15 @@ const AmountSelect = ({
                 gas: estimatedGas,
               });
             } else {
-              await call.send({
+              await call({
                 from: address,
                 value: amountBN,
               });
             }
           } else {
             await testForCTokenErrorAndSend(
-              cToken.methods.repayBorrow(isRepayingMax ? max : amountBN),
+              cToken.repayBorrow,
+              isRepayingMax ? max : amountBN,
               address,
               "Cannot repay this amount right now!"
             );
@@ -488,20 +489,22 @@ const AmountSelect = ({
         }
       } else if (mode === Mode.BORROW) {
         await testForCTokenErrorAndSend(
-          cToken.methods.borrow(amountBN),
+          cToken.borrow,
+          amountBN,
           address,
           "Cannot borrow this amount right now!"
         );
 
-        LogRocket.track("Fuse-Borrow");
+        //LogRocket.track("Fuse-Borrow");
       } else if (mode === Mode.WITHDRAW) {
         await testForCTokenErrorAndSend(
-          cToken.methods.redeemUnderlying(amountBN),
+          cToken.redeemUnderlying,
+          amountBN,
           address,
           "Cannot withdraw this amount right now!"
         );
 
-        LogRocket.track("Fuse-Withdraw");
+       // LogRocket.track("Fuse-Withdraw");
       }
 
       queryClient.refetchQueries();
@@ -806,6 +809,7 @@ const StatsColumn = ({
         const interestRateModel = await fuse.getInterestRateModel( assetToBeUpdated.cToken );
 
         let updatedAsset: USDPricedFuseAsset;
+
         if (mode === Mode.SUPPLY) {
           const supplyBalance =
             parseInt(assetToBeUpdated.supplyBalance as any) + amount;
@@ -820,11 +824,17 @@ const StatsColumn = ({
             supplyBalanceUSD: ((supplyBalance * assetToBeUpdated.underlyingPrice) / 1e36) * ethPrice,
             totalSupply,
             supplyRatePerBlock: interestRateModel.getSupplyRate(
-                totalSupply > 0
-                  ? EthersBigNumber.from(assetToBeUpdated.totalBorrow)
-                      .div(EthersBigNumber.from(totalSupply))
-                      .mul(constants.WeiPerEther)
-                  : 0
+              totalSupply > 0
+                  ? assetToBeUpdated.totalBorrow > 0 
+                      ? EthersBigNumber.from(
+                          new BigNumber(assetToBeUpdated.totalBorrow)
+                            .dividedBy(totalSupply.toString())
+                            .multipliedBy(1e18)
+                            .toFixed(0)
+                        )
+                      : constants.Zero
+                  : constants.Zero
+              
             ),
           };
         } else if (mode === Mode.WITHDRAW) {
@@ -844,14 +854,16 @@ const StatsColumn = ({
 
             totalSupply,
             supplyRatePerBlock: interestRateModel.getSupplyRate(
-              EthersBigNumber.from(
                 totalSupply > 0
-                  ? new BigNumber(assetToBeUpdated.totalBorrow)
-                      .dividedBy(totalSupply.toString())
-                      .multipliedBy(1e18)
-                      .toFixed(0)
-                  : 0
-              )
+                  ? asset.totalBorrow > 0 
+                      ? EthersBigNumber.from( 
+                          new BigNumber(assetToBeUpdated.totalBorrow)
+                            .dividedBy(totalSupply.toString())
+                            .multipliedBy(1e18)
+                            .toFixed(0)
+                        )
+                      : constants.Zero
+                  : constants.Zero
             ),
           };
         } else if (mode === Mode.BORROW) {
@@ -873,11 +885,13 @@ const StatsColumn = ({
             borrowRatePerBlock: interestRateModel.getBorrowRate(
               EthersBigNumber.from(
                 assetToBeUpdated.totalSupply > 0
-                  ? new BigNumber(totalBorrow.toString())
-                      .dividedBy(assetToBeUpdated.totalSupply)
-                      .multipliedBy(1e18)
-                      .toFixed(0)
-                  : 0
+                  ? totalBorrow > 0 ? 
+                      new BigNumber(totalBorrow.toString())
+                          .dividedBy(assetToBeUpdated.totalSupply)
+                          .multipliedBy(1e18)
+                          .toFixed(0)
+                      : constants.Zero
+                  : constants.Zero
               )
             ),
           };
@@ -900,11 +914,13 @@ const StatsColumn = ({
             borrowRatePerBlock: interestRateModel.getBorrowRate(
               EthersBigNumber.from(
                 assetToBeUpdated.totalSupply > 0
-                  ? new BigNumber(totalBorrow.toString())
-                      .dividedBy(assetToBeUpdated.totalSupply)
-                      .multipliedBy(1e18)
-                      .toFixed(0)
-                  : 0
+                  ? totalBorrow > 0
+                      ? new BigNumber(totalBorrow.toString())
+                          .dividedBy(assetToBeUpdated.totalSupply)
+                          .multipliedBy(1e18)
+                          .toFixed(0)
+                      : constants.Zero
+                  :  constants.Zero
               )
             ),
           };
