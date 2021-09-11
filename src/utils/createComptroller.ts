@@ -7,7 +7,7 @@ export const createComptroller = (comptrollerAddress: string, fuse: Fuse) => {
     JSON.parse(
       fuse.compoundContracts["contracts/Comptroller.sol:Comptroller"].abi
     ),
-    fuse.provider
+    fuse.provider.getSigner()
   );
 
   return comptroller;
